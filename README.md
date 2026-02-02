@@ -16,6 +16,13 @@ Development is incremental and driven by curiosity rather than fixed goals or de
 
 ---
 
+## 🎯 Purpose
+
+Pigadget is a personal side project focused on learning the fundamentals of cybersecurity through hands-on experimentation.  
+It is used to explore Linux systems, low-level hardware interaction (GPIO, SPI), and building small tools for system and network inspection on embedded devices.
+
+---
+
 ## 🛠️ Required hardware
 
 The following components are **mandatory** for the project to work:
@@ -50,7 +57,13 @@ These components are not required for basic operation but are used to extend fun
 
 ## 🚀 Setup
 
+1) Enable SPI:
 ```bash
+sudo raspi-config
+# Interface Options -> SPI -> Enable
+sudo reboot
+
+
 git clone https://github.com/markkhanch/pi-gadget.git
 cd pi-gadget
 ./install.sh
