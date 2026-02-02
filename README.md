@@ -1,4 +1,4 @@
-# Pi-gadget (Pygadget)
+# Pi-gadget
 
 Pi-gadget is a personal side project I work on in my free time.  
 It is a small Raspberry Pi–based handheld device created to explore system-level programming, hardware interaction, and custom interfaces.
