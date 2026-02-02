@@ -1,0 +1,7 @@
+ST7789
+Pillow
+RPi.GPIO
+spidev
+numpy
+gpiozero
+lgpio

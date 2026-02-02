@@ -1,0 +1,6 @@
+{
+  "display_name": "Network",
+  "icon": "root_network.png",
+  "visible": true,
+  "sort_priority": 2
+}
