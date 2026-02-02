@@ -41,8 +41,10 @@ These components are not required for basic operation but are used to extend fun
 
 ## 📸 Photos
 
-![Pigadget front](docs/images/device-front.jpg)
-![Pigadget back](docs/images/device-back.jpg)
+![Pigadget front](docs/images/device-front.png)
+![Pigadget menu](docs/images/device-menu.png)
+![Pigadget screen](docs/images/device-screen.png)
+![Pigadget side](docs/images/device-side.png)
 
 ---
 
