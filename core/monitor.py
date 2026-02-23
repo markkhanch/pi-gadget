@@ -3,25 +3,25 @@ import time
 class SystemMonitor:
     def __init__(self, max_points=600, interval=1.0):
         """
-        max_points  — сколько последних точек хранить (600 ≈ 10 минут при шаге 1с)
-        interval    — как часто брать новые значения, в секундах
+        max_points  — how many last points to keep (600 ≈ 10 minutes at 1s step)
+        interval    — how often to take new values, in seconds
         """
         self.max_points = max_points
         self.interval = interval
         self.last_sample = 0.0
 
-        # Текущие значения
+        # Current values
         self.cpu_percent = 0.0
         self.mem_used = 0
         self.mem_total = 0
         self.temp_c = 0.0
 
-        # История
+        # History
         self.cpu_history = []
         self.temp_history = []
 
     def sample(self, now=None):
-        """Вызывается из main.py в каждом цикле. Сам решает, пора ли брать новую точку."""
+        """Called from main.py on each loop. Decides itself if it is time to take a new point."""
         if now is None:
             now = time.time()
         if now - self.last_sample < self.interval:
@@ -32,7 +32,7 @@ class SystemMonitor:
         self._sample_mem()
         self._sample_temp()
 
-        # обновляем истории
+        # update histories
         self.cpu_history.append(self.cpu_percent)
         if len(self.cpu_history) > self.max_points:
             self.cpu_history.pop(0)
@@ -45,7 +45,7 @@ class SystemMonitor:
         try:
             with open("/proc/loadavg", "r") as f:
                 load1 = float(f.read().split()[0])
-            # Pi Zero 2W — 4 ядра, грубая оценка:
+            # Pi Zero 2W — 4 cores, rough estimate:
             self.cpu_percent = max(0.0, min(100.0, load1 * 25.0))
         except Exception:
             self.cpu_percent = 0.0
@@ -68,7 +68,7 @@ class SystemMonitor:
 
     def _sample_temp(self):
         temp = None
-        # сначала vcgencmd
+        # first vcgencmd
         try:
             import subprocess
             out = subprocess.check_output(["vcgencmd", "measure_temp"]).decode("utf-8")
@@ -78,7 +78,7 @@ class SystemMonitor:
         except Exception:
             temp = None
 
-        # потом sysfs
+        # then sysfs
         if temp is None:
             try:
                 with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:

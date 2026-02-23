@@ -5,3 +5,4 @@ spidev
 numpy
 gpiozero
 lgpio
+flask

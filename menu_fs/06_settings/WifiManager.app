@@ -1,0 +1,6 @@
+{
+  "name": "Wi-Fi",
+  "module": "settings.wifi_manager",
+  "icon": "wifi_on.png",
+  "sort_priority": 100
+}

@@ -1,22 +1,79 @@
+"""
+ui/screensaver.py
+Screensaver: clock, date, Wi-Fi/Ethernet and Bluetooth icons.
+"""
+
 from PIL import Image, ImageDraw
-import datetime
+from datetime import datetime
 
-def draw_screensaver(hw, fonts):
+
+def _text_size(draw, text, font):
+    bbox = draw.textbbox((0, 0), text, font=font)
+    return bbox[2] - bbox[0], bbox[3] - bbox[1]
+
+
+def draw_screensaver(hw, fonts, wifi_icons, bt_icons, status, eth_icon=None):
+    """
+    Draws the screensaver.
+
+    hw         — HWDisplay
+    fonts      — (font_big, font_small, font_label)
+    wifi_icons — {"on": Image, "off": Image}
+    bt_icons   — {"on": Image, "off": Image}
+    status     — core.status module
+    eth_icon   — Ethernet icon Image (or None if no file)
+
+    First slot logic (x=4):
+      Ethernet connected → eth_icon
+      Wi-Fi connected    → wifi_on
+      Nothing            → wifi_off
+    """
     font_big, font_small, font_label = fonts
+    width, height = hw.W, hw.H
 
-    image = Image.new("RGB", (hw.W, hw.H), (0, 0, 0))
-    draw = ImageDraw.Draw(image)
+    image = Image.new("RGB", (width, height), (0, 0, 0))
+    draw  = ImageDraw.Draw(image)
 
-    now = datetime.datetime.now()
-    time_str = now.strftime("%H:%M")
-    date_str = now.strftime("%d.%m.%Y")
+    # --- Status bar ---
+    bar_h = 30
+    draw.line([(0, bar_h), (width, bar_h)], fill=(80, 80, 80), width=1)
 
-    # время по центру
-    w, h = draw.textsize(time_str, font=font_big)
-    draw.text(((hw.W - w) // 2, (hw.H - h) // 2), time_str, font=font_big, fill=(255,255,255))
+    # First slot — Ethernet replaces Wi-Fi
+    if eth_icon is not None and status.is_ethernet_connected():
+        slot1_icon = eth_icon
+    elif status.is_wifi_connected():
+        slot1_icon = wifi_icons["on"]
+    else:
+        slot1_icon = wifi_icons["off"]
 
-    # дата ниже
-    w2, h2 = draw.textsize(date_str, font=font_small)
-    draw.text(((hw.W - w2) // 2, (hw.H - h) // 2 + h), date_str, font=font_small, fill=(200,200,200))
+    bt_icon = bt_icons["on"] if status.is_bluetooth_on() else bt_icons["off"]
+
+    image.paste(slot1_icon, (4, 3), slot1_icon)
+    image.paste(bt_icon,   (36, 3), bt_icon)
+
+    # --- Time and date ---
+    now      = datetime.now()
+    hour_str = now.strftime("%H")
+    min_str  = now.strftime("%M")
+    sec      = now.second
+
+    time_str = f"{hour_str}:{min_str}"
+    date_str = now.strftime("%m/%d/%Y")
+
+    time_w, time_h = _text_size(draw, time_str, font_big)
+    date_w, date_h = _text_size(draw, date_str, font_small)
+
+    time_x = (width - time_w) // 2
+    time_y = bar_h + (height - bar_h) // 2 - time_h
+    date_x = (width - date_w) // 2
+    date_y = time_y + time_h + 15
+
+    draw.text((time_x, time_y), time_str, font=font_big, fill=(255, 255, 255))
+
+    if sec % 2 == 1:
+        left_w, _ = _text_size(draw, hour_str, font_big)
+        draw.text((time_x + left_w, time_y), ":", font=font_big, fill=(0, 0, 0))
+
+    draw.text((date_x, date_y), date_str, font=font_small, fill=(180, 180, 180))
 
     hw.show(image)

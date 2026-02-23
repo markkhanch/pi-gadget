@@ -1,4 +1,58 @@
-from PIL import Image, ImageDraw
+"""
+apps/system/temp/app.py
+Температура процессора с цветным индикатором и графиком истории.
+"""
+
+from PIL import Image, ImageDraw, ImageFont
+
+
+TOP_BAR_H  = 24
+BOT_BAR_H  = 20
+BG_COLOR   = (0, 0, 0)
+HEADER_BG  = (20, 20, 20)
+SEP_COLOR  = (60, 60, 60)
+HINT_COLOR = (100, 100, 100)
+WHITE      = (255, 255, 255)
+
+FONT_PATH  = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
+
+def _temp_color(temp: float):
+    if temp < 50:
+        return (70, 200, 70)
+    elif temp < 70:
+        return (220, 180, 50)
+    else:
+        return (220, 70, 70)
+
+
+def _temp_label(temp: float) -> str:
+    if temp < 50:
+        return "Cool"
+    elif temp < 70:
+        return "Warm"
+    else:
+        return "Hot!"
+
+
+def _fit_font(text: str, max_w: int, max_h: int, fallback) -> ImageFont.FreeTypeFont:
+    """
+    Подбирает максимальный размер шрифта так, чтобы текст
+    влезал в max_w x max_h. Начинает с 48, уменьшает до 12.
+    """
+    for size in range(48, 11, -1):
+        try:
+            f = ImageFont.truetype(FONT_PATH, size)
+        except Exception:
+            return fallback
+        # используем getbbox напрямую у шрифта — быстрее
+        bbox = f.getbbox(text)
+        w = bbox[2] - bbox[0]
+        h = bbox[3] - bbox[1]
+        if w <= max_w and h <= max_h:
+            return f
+    return fallback
+
 
 class TempApp:
     def __init__(self, hw, fonts, monitor):
@@ -6,140 +60,132 @@ class TempApp:
         self.font_big, self.font_small, self.font_label = fonts
         self.monitor = monitor
 
-    def _text_size(self, draw, text, font):
+    def _ts(self, draw, text, font):
         bbox = draw.textbbox((0, 0), text, font=font)
-        w = bbox[2] - bbox[0]
-        h = bbox[3] - bbox[1]
-        return w, h
+        return bbox[2] - bbox[0], bbox[3] - bbox[1]
 
     def on_enter(self):
-        # историю не трогаем
         pass
 
     def on_event(self, event):
-        if event == "KEY3":
-            return "exit"
-        return "stay"
+        return "exit" if event == "KEY3" else "stay"
 
     def update(self, dt):
-        # всё делает SystemMonitor
         pass
 
-    def draw(self):
-        W, H = self.hw.W, self.hw.H
-        img = Image.new("RGB", (W, H), (0, 0, 0))
-        draw = ImageDraw.Draw(img)
-
-        temp = self.monitor.temp_c
-        hist = self.monitor.temp_history
-
-        # статус по температуре
-        if temp < 50:
-            status = "Cool"
-            fill_color = (80, 200, 80)
-        elif temp < 70:
-            status = "Warm"
-            fill_color = (220, 180, 60)
-        else:
-            status = "Hot!"
-            fill_color = (220, 80, 80)
-
-        # ---------- заголовок ----------
-        title = "Temperature"
-        tw, th = self._text_size(draw, title, self.font_label)
-        draw.text(((W - tw)//2, 2), title, font=self.font_label, fill=(200,200,200))
-        draw.line([(0,18),(W,18)], fill=(80,80,80), width=1)
-
-        # ---------- крупное значение ----------
-        temp_str = f"{temp:4.1f}°C"
-        t_w, t_h = self._text_size(draw, temp_str, self.font_big)
-        temp_y = 22
-        draw.text(((W - t_w)//2, temp_y),
-                  temp_str, font=self.font_big, fill=(255,255,255))
-
-        # ---------- статус ----------
-        s_w, s_h = self._text_size(draw, status, self.font_label)
-        status_y = temp_y + t_h + 4
-        draw.text(((W - s_w)//2, status_y),
-                  status, font=self.font_label, fill=(180,180,180))
-
-        # ---------- подсказка снизу ----------
-        hint = "KEY3: back"
-        hw_hint, hh_hint = self._text_size(draw, hint, self.font_label)
-        bottom_hint_y = H - hh_hint - 4
-        draw.text(((W - hw_hint)//2, bottom_hint_y),
-                  hint, font=self.font_label, fill=(150,150,150))
-
-        # ---------- область под градусник и график ----------
-        top_area = status_y + s_h + 8
-        bottom_area = bottom_hint_y - 8
-        if bottom_area <= top_area:
-            self.hw.show(img)
+    def _draw_graph(self, draw, x0, y0, x1, y1, vals, color):
+        if len(vals) < 2:
             return
+        gw = x1 - x0
+        gh = y1 - y0
+        vmin, vmax = min(vals), max(vals)
+        if vmax == vmin:
+            vmax = vmin + 1.0
 
-        # левый блок (градусник)
-        gauge_x0 = 4
-        gauge_x1 = W//2 - 4
-        gauge_w = gauge_x1 - gauge_x0
+        draw.rectangle([x0, y0, x1, y1], outline=SEP_COLOR, width=1)
 
-        bar_w = min(20, gauge_w - 8)
-        bar_x = gauge_x0 + (gauge_w - bar_w)//2
-        bar_y = top_area
-        bar_h = bottom_area - top_area
+        for frac in (0.25, 0.5, 0.75):
+            gy = int(y1 - gh * frac)
+            draw.line([(x0 + 1, gy), (x1 - 1, gy)], fill=(35, 35, 35), width=1)
 
-        draw.rectangle([bar_x, bar_y, bar_x + bar_w, bar_y + bar_h],
-                       outline=(80,80,80), width=1)
+        step = gw / max(1, len(vals) - 1)
+        pts  = []
+        for i, v in enumerate(vals):
+            px = x0 + i * step
+            py = y1 - (v - vmin) / (vmax - vmin) * gh
+            pts.append((px, py))
 
-        ratio = max(0.0, min(1.0, temp / 90.0))
-        fill_h = int(bar_h * ratio)
-        if fill_h > 0:
-            draw.rectangle(
-                [bar_x + 2,
-                 bar_y + bar_h - fill_h + 2,
-                 bar_x + bar_w - 2,
-                 bar_y + bar_h - 2],
-                fill=fill_color
-            )
+        for i in range(1, len(pts)):
+            draw.line([pts[i - 1], pts[i]], fill=color, width=1)
 
-        # правый блок (график температуры)
-        if len(hist) > 1:
-            graph_x0 = W//2 + 4
-            graph_x1 = W - 4
-            graph_y0 = top_area
-            graph_y1 = bottom_area
+        for lbl, gy in [(f"{int(vmax)}°", y0), (f"{int(vmin)}°", y1)]:
+            lw, lh = self._ts(draw, lbl, self.font_label)
+            draw.text((x1 - lw - 2, gy + 1), lbl,
+                      font=self.font_label, fill=(90, 90, 90))
 
-            graph_w = graph_x1 - graph_x0
-            graph_h = graph_y1 - graph_y0
+    def draw(self):
+        W, H  = self.hw.W, self.hw.H
+        img   = Image.new("RGB", (W, H), BG_COLOR)
+        draw  = ImageDraw.Draw(img)
 
-            draw.rectangle([graph_x0, graph_y0, graph_x1, graph_y1],
-                           outline=(60,60,60), width=1)
+        temp  = self.monitor.temp_c
+        hist  = self.monitor.temp_history
+        color = _temp_color(temp)
+        label = _temp_label(temp)
 
-            vals = hist
-            vmin = min(vals)
-            vmax = max(vals)
-            if vmax == vmin:
-                vmax = vmin + 1.0
+        # ── Шапка ───────────────────────────────────────────
+        draw.rectangle([(0, 0), (W, TOP_BAR_H)], fill=HEADER_BG)
 
-            # подписи min/max в градусах
-            top_label = f"{int(vmax)}°"
-            bot_label = f"{int(vmin)}°"
-            tlw, tlh = self._text_size(draw, top_label, self.font_label)
-            blw, blh = self._text_size(draw, bot_label, self.font_label)
-            draw.text((graph_x0 - tlw - 2, graph_y0 - tlh//2),
-                      top_label, font=self.font_label, fill=(150,150,150))
-            draw.text((graph_x0 - blw - 2, graph_y1 - blh//2),
-                      bot_label, font=self.font_label, fill=(150,150,150))
+        title = "Temperature"
+        tw, th = self._ts(draw, title, self.font_label)
+        draw.text(((W - tw) // 2, (TOP_BAR_H - th) // 2),
+                  title, font=self.font_label, fill=WHITE)
 
-            n = len(vals)
-            step_x = graph_w / max(1, n - 1)
-            points = []
-            for i, v in enumerate(vals):
-                x = graph_x0 + i * step_x
-                r = (v - vmin) / (vmax - vmin)
-                y = graph_y1 - r * graph_h
-                points.append((x, y))
-            for i in range(1, len(points)):
-                draw.line([points[i-1], points[i]],
-                          fill=(120,200,250), width=1)
+        # бейдж справа
+        bp  = 4
+        bw, bh = self._ts(draw, label, self.font_label)
+        bx  = W - bw - bp * 2 - 4
+        by  = (TOP_BAR_H - bh) // 2 - bp // 2
+        draw.rounded_rectangle(
+            [(bx - bp, by), (bx + bw + bp, by + bh + bp)],
+            radius=4, fill=color
+        )
+        draw.text((bx, by + bp // 2), label,
+                  font=self.font_label, fill=(0, 0, 0))
+
+        draw.line([(0, TOP_BAR_H), (W, TOP_BAR_H)], fill=SEP_COLOR, width=1)
+
+        # ── Блок с числом ─────────────────────────────────────
+        MARGIN   = 8
+        NUM_PAD  = 8                          # отступ внутри блока
+        # область доступная для блока с числом
+        num_area_w = W - MARGIN * 2
+        num_area_h = 70                       # резервируем 70px под число
+
+        temp_str  = f"{temp:.1f}°C"
+
+        # подбираем шрифт — текст должен влезать в блок минус padding
+        font_temp = _fit_font(
+            temp_str,
+            num_area_w - NUM_PAD * 2,
+            num_area_h - NUM_PAD * 2,
+            self.font_small
+        )
+
+        tw2, th2 = self._ts(draw, temp_str, font_temp)
+
+        # рисуем блок строго по num_area, текст центрируем внутри
+        block_x0 = MARGIN
+        block_y0 = TOP_BAR_H + 8
+        block_x1 = W - MARGIN
+        block_y1 = block_y0 + num_area_h
+
+        bg = tuple(max(0, c - 160) for c in color)
+        draw.rounded_rectangle(
+            [(block_x0, block_y0), (block_x1, block_y1)],
+            radius=8, fill=bg, outline=color, width=2
+        )
+
+        # текст точно по центру блока
+        tx = block_x0 + (num_area_w - tw2) // 2
+        ty = block_y0 + (num_area_h - th2) // 2
+        draw.text((tx, ty), temp_str, font=font_temp, fill=WHITE)
+
+        # ── График ───────────────────────────────────────────
+        graph_top  = block_y1 + 8
+        bot_hint_y = H - BOT_BAR_H
+        graph_bot  = bot_hint_y - 4
+
+        if graph_bot - graph_top >= 20:
+            self._draw_graph(draw,
+                             MARGIN, graph_top,
+                             W - MARGIN, graph_bot,
+                             hist, color)
+
+        # ── Подсказка ────────────────────────────────────────
+        hint = "KEY3: back"
+        hw2, hh2 = self._ts(draw, hint, self.font_label)
+        draw.text(((W - hw2) // 2, H - hh2 - 2),
+                  hint, font=self.font_label, fill=HINT_COLOR)
 
         self.hw.show(img)

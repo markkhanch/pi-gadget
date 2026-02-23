@@ -17,12 +17,12 @@ def _wrap_lines(lines, max_chars):
 
 def draw_console(hw, font_label, console_lines, console_scroll):
     """
-    Рисует экран консоли с переносом строк и скроллом.
-    
-    hw          — HWDisplay (из core.hw)
-    font_label  — шрифт для текста
-    console_lines — список строк исходного вывода
-    console_scroll — индекс первой видимой строки (по wrapped-строкам)
+    Draws console screen with line wrapping and scrolling.
+
+    hw            — HWDisplay (from core.hw)
+    font_label    — font used for text
+    console_lines — list of source output lines
+    console_scroll — index of first visible line (by wrapped lines)
     """
     width, height = hw.W, hw.H
     image = Image.new("RGB", (width, height), (0, 0, 0))
@@ -35,8 +35,8 @@ def draw_console(hw, font_label, console_lines, console_scroll):
     draw.text((4, 2), header, font=font_label, fill=(200, 200, 200))
     draw.line([(0, top_bar_h), (width, top_bar_h)], fill=(80, 80, 80), width=1)
 
-    # Обёртка текста, чтобы строки не вылазили за экран по X
-    max_chars = 24   # подбирается под ширину твоего дисплея
+    # Text wrapping so lines do not go off-screen on X axis
+    max_chars = 24   # tuned for your display width
     wrapped = _wrap_lines(console_lines, max_chars)
 
     row_h = 14
@@ -45,7 +45,7 @@ def draw_console(hw, font_label, console_lines, console_scroll):
     if not wrapped:
         wrapped = ["(no output)"]
 
-    # Нормализуем скролл (если вышел за границы)
+    # Normalize scroll (if out of bounds)
     if console_scroll < 0:
         console_scroll = 0
     if console_scroll > max(0, len(wrapped) - max_rows):

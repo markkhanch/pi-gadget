@@ -1,129 +1,166 @@
+"""
+apps/system/disk/app.py
+Использование диска с баром и круговой диаграммой.
+"""
+
 import shutil
 from PIL import Image, ImageDraw
+import math
+
+
+TOP_BAR_H  = 24
+BOT_BAR_H  = 20
+BG_COLOR   = (0, 0, 0)
+HEADER_BG  = (20, 20, 20)
+SEP_COLOR  = (60, 60, 60)
+HINT_COLOR = (100, 100, 100)
+WHITE      = (255, 255, 255)
+LABEL_COLOR = (200, 200, 200)
+
+
+def _disk_color(pct: float):
+    if pct < 60:
+        return (70, 200, 70)
+    elif pct < 85:
+        return (220, 180, 50)
+    else:
+        return (220, 70, 70)
+
 
 class DiskApp:
     def __init__(self, hw, fonts, monitor=None):
-        # monitor не используем, но принимаем для совместимости
         self.hw = hw
         self.font_big, self.font_small, self.font_label = fonts
 
-        self.last_update = 0.0
+        self.timer    = 0.0
         self.total_gb = 0.0
-        self.used_gb = 0.0
-        self.free_gb = 0.0
+        self.used_gb  = 0.0
+        self.free_gb  = 0.0
         self.used_pct = 0.0
 
-    def _text_size(self, draw, text, font):
+    def _ts(self, draw, text, font):
         bbox = draw.textbbox((0, 0), text, font=font)
-        w = bbox[2] - bbox[0]
-        h = bbox[3] - bbox[1]
-        return w, h
+        return bbox[2] - bbox[0], bbox[3] - bbox[1]
 
     def _read_disk(self):
-        """Читаем использование корневого раздела /."""
         try:
-            usage = shutil.disk_usage("/")
-            total = usage.total
-            used = usage.used
-            free = usage.free
-
-            self.total_gb = total / (1024**3)
-            self.used_gb = used / (1024**3)
-            self.free_gb = free / (1024**3)
-            if total > 0:
-                self.used_pct = used * 100.0 / total
-            else:
-                self.used_pct = 0.0
+            u = shutil.disk_usage("/")
+            self.total_gb = u.total / 1024 ** 3
+            self.used_gb  = u.used  / 1024 ** 3
+            self.free_gb  = u.free  / 1024 ** 3
+            self.used_pct = u.used * 100.0 / u.total if u.total > 0 else 0.0
         except Exception:
-            self.total_gb = 0.0
-            self.used_gb = 0.0
-            self.free_gb = 0.0
-            self.used_pct = 0.0
+            self.total_gb = self.used_gb = self.free_gb = self.used_pct = 0.0
 
     def on_enter(self):
         self._read_disk()
+        self.timer = 0.0
 
     def on_event(self, event):
-        if event == "KEY3":
-            return "exit"
-        return "stay"
+        return "exit" if event == "KEY3" else "stay"
 
     def update(self, dt):
-        # Можно обновлять, например, раз в 5 секунд
-        self.last_update += dt
-        if self.last_update >= 5.0:
+        self.timer += dt
+        if self.timer >= 5.0:
             self._read_disk()
-            self.last_update = 0.0
+            self.timer = 0.0
+
+    def _draw_donut(self, draw, cx, cy, r_out, r_in, pct, color):
+        """
+        Рисует простую кольцевую диаграмму.
+        Закрашенный сектор = used, серый = free.
+        """
+        start_angle = -90          # 12 часов
+        used_angle  = 360 * pct / 100.0
+        free_angle  = 360 - used_angle
+
+        def arc_bbox(r):
+            return [(cx - r, cy - r), (cx + r, cy + r)]
+
+        # фон (free) — тёмно-серый
+        draw.arc(arc_bbox(r_out), start_angle, start_angle + 360,
+                 fill=(50, 50, 50), width=r_out - r_in)
+
+        # used — цветной
+        if used_angle > 0:
+            draw.arc(arc_bbox(r_out), start_angle, start_angle + used_angle,
+                     fill=color, width=r_out - r_in)
+
+        # процент в центре
+        pct_str = f"{pct:.0f}%"
+        pw, ph  = self._ts(draw, pct_str, self.font_label)
+        draw.text((cx - pw // 2, cy - ph // 2),
+                  pct_str, font=self.font_label, fill=WHITE)
 
     def draw(self):
-        W, H = self.hw.W, self.hw.H
-        img = Image.new("RGB", (W, H), (0, 0, 0))
-        draw = ImageDraw.Draw(img)
+        W, H  = self.hw.W, self.hw.H
+        img   = Image.new("RGB", (W, H), BG_COLOR)
+        draw  = ImageDraw.Draw(img)
+        color = _disk_color(self.used_pct)
 
-        # ---------- Заголовок ----------
-        title = "Disk usage"
-        tw, th = self._text_size(draw, title, self.font_label)
-        draw.text(((W - tw)//2, 2),
-                  title, font=self.font_label, fill=(200,200,200))
-        draw.line([(0,18),(W,18)], fill=(80,80,80), width=1)
+        # ── Шапка ───────────────────────────────────────────
+        draw.rectangle([(0, 0), (W, TOP_BAR_H)], fill=HEADER_BG)
+        title = "Disk Usage"
+        tw, th = self._ts(draw, title, self.font_label)
+        draw.text(((W - tw) // 2, (TOP_BAR_H - th) // 2),
+                  title, font=self.font_label, fill=WHITE)
+        draw.line([(0, TOP_BAR_H), (W, TOP_BAR_H)], fill=SEP_COLOR, width=1)
 
-        # ---------- Основные цифры ----------
-        # Строка: "Used: 12.3 / 28.6 GiB"
-        used_str = f"Used: {self.used_gb:4.1f} / {self.total_gb:4.1f} GiB"
-        uw, uh = self._text_size(draw, used_str, self.font_label)
-        y0 = 22
-        draw.text(((W - uw)//2, y0),
-                  used_str, font=self.font_label, fill=(255,255,255))
+        # ── Левая колонка: цифры ─────────────────────────────
+        MARGIN   = 6
+        col_split = W // 2 - 4
+        y        = TOP_BAR_H + 10
 
-        # Строка: "Free: 16.3 GiB (57%)"
-        free_str = f"Free: {self.free_gb:4.1f} GiB ({100.0 - self.used_pct:3.0f}%)"
-        fw, fh = self._text_size(draw, free_str, self.font_label)
-        y1 = y0 + uh + 2
-        draw.text(((W - fw)//2, y1),
-                  free_str, font=self.font_label, fill=(200,200,200))
+        lines = [
+            ("Used",  f"{self.used_gb:.1f} GiB"),
+            ("Free",  f"{self.free_gb:.1f} GiB"),
+            ("Total", f"{self.total_gb:.1f} GiB"),
+        ]
+        line_h = self.font_label.size + 6
 
-        # ---------- Большой бар ----------
-        bar_x = 10
-        bar_y = y1 + fh + 10
-        bar_w = W - 2*bar_x
-        bar_h = 20
+        for key, val in lines:
+            # ключ — серым, значение — белым
+            kw, kh = self._ts(draw, key + ": ", self.font_label)
+            draw.text((MARGIN, y), key + ": ",
+                      font=self.font_label, fill=(150, 150, 150))
+            draw.text((MARGIN + kw, y), val,
+                      font=self.font_label, fill=WHITE)
+            y += line_h
 
-        # рамка
-        draw.rectangle([bar_x, bar_y, bar_x+bar_w, bar_y+bar_h],
-                       outline=(80,80,80), width=1)
+        # ── Правая колонка: кольцевая диаграмма ─────────────
+        bot_hint_y = H - BOT_BAR_H
+        right_area_h = bot_hint_y - TOP_BAR_H
+        cx = col_split + (W - col_split) // 2
+        cy = TOP_BAR_H + right_area_h // 2
 
-        # used (красный/жёлтый/зелёный в зависимости от заполнения)
-        pct = self.used_pct
-        if pct < 60:
-            fill_color = (80, 200, 80)     # зелёный
-        elif pct < 85:
-            fill_color = (220, 180, 60)   # жёлтый
-        else:
-            fill_color = (220, 80, 80)    # красный
+        r_out = min((W - col_split) // 2 - 6, right_area_h // 2 - 6)
+        r_in  = max(r_out - 16, 8)
 
-        fill_w = int(bar_w * (pct / 100.0))
+        self._draw_donut(draw, cx, cy, r_out, r_in, self.used_pct, color)
+
+        # ── Бар во всю ширину под цифрами ────────────────────
+        bar_top = y + 6
+        bar_h   = 12
+        bar_w   = col_split - MARGIN
+
+        draw.rectangle([MARGIN, bar_top, MARGIN + bar_w, bar_top + bar_h],
+                       outline=SEP_COLOR, width=1)
+        fill_w = max(0, int((bar_w - 2) * self.used_pct / 100.0))
         if fill_w > 0:
-            draw.rectangle([bar_x+1, bar_y+1,
-                            bar_x+fill_w-1, bar_y+bar_h-1],
-                           fill=fill_color)
+            draw.rectangle([MARGIN + 1, bar_top + 1,
+                            MARGIN + fill_w, bar_top + bar_h - 1],
+                           fill=color)
 
-        # подпись процента поверх бара
-        pct_str = f"{pct:4.1f}%"
-        pw, ph = self._text_size(draw, pct_str, self.font_label)
-        draw.text((bar_x + (bar_w - pw)//2, bar_y + (bar_h - ph)//2),
-                  pct_str, font=self.font_label, fill=(0,0,0))
-
-        # ---------- Мелкие деления по бару (25, 50, 75%) ----------
+        # деления 25/50/75% под баром (снаружи)
         for frac in (0.25, 0.5, 0.75):
-            x = bar_x + int(bar_w * frac)
-            draw.line([(x, bar_y), (x, bar_y + bar_h)],
-                      fill=(60,60,60), width=1)
+            x = MARGIN + int(bar_w * frac)
+            draw.line([(x, bar_top + bar_h + 1), (x, bar_top + bar_h + 4)],
+                      fill=(80, 80, 80), width=1)
 
-        # ---------- Подсказка ----------
+        # ── Подсказка снизу ──────────────────────────────────
         hint = "KEY3: back"
-        hw_hint, hh_hint = self._text_size(draw, hint, self.font_label)
-        bottom_hint_y = H - hh_hint - 4
-        draw.text(((W - hw_hint)//2, bottom_hint_y),
-                  hint, font=self.font_label, fill=(150,150,150))
+        hw2, hh2 = self._ts(draw, hint, self.font_label)
+        draw.text(((W - hw2) // 2, H - hh2 - 2),
+                  hint, font=self.font_label, fill=HINT_COLOR)
 
         self.hw.show(img)
