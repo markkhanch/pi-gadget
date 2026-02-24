@@ -1,9 +1,9 @@
 """
-remote_ui.py v3 — long polling, no one-frame delay.
+remote_ui.py v3 — long polling, без задержки на один кадр.
 
-Browser sends GET /frame?last_id=N
-Server keeps the connection open until a frame with id > N appears,
-then returns it immediately. Browser receives the frame right after push_frame().
+Браузер отправляет GET /frame?last_id=N
+Сервер держит соединение открытым пока не появится кадр с id > N,
+затем сразу отдаёт его. Браузер получает кадр немедленно после push_frame().
 """
 
 import io
@@ -109,8 +109,8 @@ HTML = r"""<!DOCTYPE html>
   let currentId = -1;
   let active = true;
 
-  // Long polling: send request with last_id,
-  // server holds it until a new frame appears and responds immediately.
+  // Long polling: отправляем запрос с last_id,
+  // сервер держит его пока не появится новый кадр и сразу отвечает.
   async function fetchNextFrame() {
     try {
       const res = await fetch('/next_frame?last_id=' + currentId);
@@ -118,7 +118,7 @@ HTML = r"""<!DOCTYPE html>
       const blob = await res.blob();
       const newId = parseInt(res.headers.get('X-Frame-Id') || '-1');
       
-      // Display the frame
+      // Показываем кадр
       const url = URL.createObjectURL(blob);
       const old = screen.src;
       screen.src = url;
@@ -132,12 +132,12 @@ HTML = r"""<!DOCTYPE html>
       fb.className = 'err';
       await new Promise(r => setTimeout(r, 500));
     }
-    if (active) fetchNextFrame(); // request the next one immediately
+    if (active) fetchNextFrame(); // сразу запрашиваем следующий
   }
 
   fetchNextFrame();
 
-  // Buttons
+  // Кнопки
   function send(key) {
     fetch('/key', {
       method: 'POST',
@@ -161,14 +161,14 @@ HTML = r"""<!DOCTYPE html>
 
 class RemoteUI:
     def __init__(self, button_queue: queue.Queue, host='0.0.0.0', port=5000):
-        self.button_queue = button_queue
+        self.button_queue = button_queue  # public — shared by singleton in hw.py
         self.host = host
         self.port = port
 
         self._lock = threading.Lock()
         self._frame_data: bytes = b''
         self._frame_id: int = 0
-        self._frame_event = threading.Event()  # signal that a new frame appeared
+        self._frame_event = threading.Event()  # сигнал что появился новый кадр
 
         self._app = Flask(__name__)
         self._setup_routes()
@@ -183,15 +183,15 @@ class RemoteUI:
         @app.route('/next_frame')
         def next_frame():
             """
-            Long polling: wait until frame_id > last_id, then return the frame.
-            Browser receives the response right after push_frame() — no delay.
+            Long polling: ждём пока frame_id > last_id, затем отдаём кадр.
+            Браузер получает ответ сразу после push_frame() — без задержки.
             """
             try:
                 last_id = int(request.args.get('last_id', -1))
             except (ValueError, TypeError):
                 last_id = -1
 
-            timeout = 5.0  # wait at most 5 seconds (for screensaver, etc.)
+            timeout = 5.0  # максимум ждём 5 секунд (для screensaver и т.п.)
             deadline = time.time() + timeout
 
             while True:
@@ -206,10 +206,10 @@ class RemoteUI:
                     resp.headers['X-Frame-Id'] = str(fid)
                     return resp
 
-                # Wait for a new frame signal (or timeout)
+                # Ждём сигнала о новом кадре (или timeout)
                 remaining = deadline - time.time()
                 if remaining <= 0:
-                    # Return current frame on timeout (screensaver, etc.)
+                    # Отдаём текущий кадр по таймауту (screensaver и т.п.)
                     with self._lock:
                         data = self._frame_data
                         fid = self._frame_id
@@ -236,13 +236,13 @@ class RemoteUI:
             return resp
 
     def push_frame(self, img):
-        """Accept a PIL.Image — call after each hw.show()."""
+        """Принять PIL.Image — вызывать после каждого hw.show()."""
         buf = io.BytesIO()
         img.save(buf, format='JPEG', quality=75)
         with self._lock:
             self._frame_data = buf.getvalue()
             self._frame_id += 1
-        # Notify all waiting threads that a new frame is available
+        # Сигналим всем ждущим потокам что есть новый кадр
         self._frame_event.set()
 
     def start(self):

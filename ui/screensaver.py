@@ -3,6 +3,7 @@ ui/screensaver.py
 Screensaver: clock, date, Wi-Fi/Ethernet and Bluetooth icons.
 """
 
+import os
 from PIL import Image, ImageDraw
 from datetime import datetime
 
@@ -10,6 +11,18 @@ from datetime import datetime
 def _text_size(draw, text, font):
     bbox = draw.textbbox((0, 0), text, font=font)
     return bbox[2] - bbox[0], bbox[3] - bbox[1]
+
+
+def _get_clock_fmt() -> str:
+    """Read 12/24h preference saved by the Date & Time settings app."""
+    fmt_file = os.path.join(
+        os.path.dirname(__file__), "..",
+        "apps", "settings", "datetime", "clockfmt.txt"
+    )
+    try:
+        return open(os.path.abspath(fmt_file)).read().strip()
+    except Exception:
+        return "24"
 
 
 def draw_screensaver(hw, fonts, wifi_icons, bt_icons, status, eth_icon=None):
@@ -22,11 +35,6 @@ def draw_screensaver(hw, fonts, wifi_icons, bt_icons, status, eth_icon=None):
     bt_icons   — {"on": Image, "off": Image}
     status     — core.status module
     eth_icon   — Ethernet icon Image (or None if no file)
-
-    First slot logic (x=4):
-      Ethernet connected → eth_icon
-      Wi-Fi connected    → wifi_on
-      Nothing            → wifi_off
     """
     font_big, font_small, font_label = fonts
     width, height = hw.W, hw.H
@@ -52,12 +60,22 @@ def draw_screensaver(hw, fonts, wifi_icons, bt_icons, status, eth_icon=None):
     image.paste(bt_icon,   (36, 3), bt_icon)
 
     # --- Time and date ---
-    now      = datetime.now()
-    hour_str = now.strftime("%H")
-    min_str  = now.strftime("%M")
-    sec      = now.second
+    now     = datetime.now()
+    fmt     = _get_clock_fmt()
+    sec     = now.second
 
-    time_str = f"{hour_str}:{min_str}"
+    if fmt == "12":
+        hour_val = now.hour % 12 or 12
+        hour_str = f"{hour_val:02d}"
+        min_str  = now.strftime("%M")
+        ampm     = now.strftime("%p")
+        time_str = f"{hour_str}:{min_str}"
+    else:
+        hour_str = now.strftime("%H")
+        min_str  = now.strftime("%M")
+        ampm     = ""
+        time_str = f"{hour_str}:{min_str}"
+
     date_str = now.strftime("%m/%d/%Y")
 
     time_w, time_h = _text_size(draw, time_str, font_big)
@@ -68,11 +86,17 @@ def draw_screensaver(hw, fonts, wifi_icons, bt_icons, status, eth_icon=None):
     date_x = (width - date_w) // 2
     date_y = time_y + time_h + 15
 
+    # Blinking colon
     draw.text((time_x, time_y), time_str, font=font_big, fill=(255, 255, 255))
-
     if sec % 2 == 1:
         left_w, _ = _text_size(draw, hour_str, font_big)
         draw.text((time_x + left_w, time_y), ":", font=font_big, fill=(0, 0, 0))
+
+    # AM/PM label for 12h mode
+    if ampm:
+        aw, ah = _text_size(draw, ampm, font_label)
+        draw.text(((width - aw) // 2, time_y - ah - 2),
+                  ampm, font=font_label, fill=(150, 150, 150))
 
     draw.text((date_x, date_y), date_str, font=font_small, fill=(180, 180, 180))
 

@@ -8,37 +8,39 @@ try:
 except ImportError:
     _REMOTE_AVAILABLE = False
 
+# Singleton guard — ensures RemoteUI starts only once even if HWDisplay is imported multiple times
+_remote_instance = None
+
 
 class _DisplayProxy:
     """
-    A wrapper around ST7789 that intercepts ShowImage()
-    and duplicates each frame into RemoteUI.
-    This way any code (main_menu, keyboard, list_view, etc.)
-    is automatically streamed to the browser without changes.
+    Wrapper around ST7789 that intercepts every ShowImage() call
+    and forwards the frame to RemoteUI for browser streaming.
     """
     def __init__(self, real_disp):
         self._d = real_disp
-        self._remote = None  # set after RemoteUI is created
+        self._remote = None
 
     def __getattr__(self, name):
-        # Proxy all other attributes/methods directly
         return getattr(self._d, name)
 
     def ShowImage(self, img):
         self._d.ShowImage(img)
         if self._remote is not None:
-            # img is already rotated by 270° — rotate back for the browser
+            # img is already rotated 270° for the physical display — rotate back for browser
             self._remote.push_frame(img.rotate(90))
 
 
 class HWDisplay:
     def __init__(self, remote=True, remote_port=5000):
+        global _remote_instance
+
         real_disp = ST7789.ST7789()
         real_disp.Init()
         real_disp.clear()
         real_disp.bl_DutyCycle(80)
 
-        # Replace disp with a proxy — intercepts ALL ShowImage() calls in the project
+        # Replace disp with proxy — intercepts ALL ShowImage() calls project-wide
         self.disp = _DisplayProxy(real_disp)
 
         self.W = real_disp.width
@@ -48,12 +50,20 @@ class HWDisplay:
         self._remote = None
 
         if remote and _REMOTE_AVAILABLE:
-            self._remote = RemoteUI(self._remote_queue, port=remote_port)
-            self.disp._remote = self._remote  # give the proxy access to remote
-            self._remote.start()
+            if _remote_instance is None:
+                # Start RemoteUI only once
+                _remote_instance = RemoteUI(self._remote_queue, port=remote_port)
+                _remote_instance.start()
+            else:
+                # Reuse existing instance's queue
+                self._remote_queue = _remote_instance.button_queue
+
+            self._remote = _remote_instance
+            self.disp._remote = _remote_instance
+
         elif remote and not _REMOTE_AVAILABLE:
-            print("[HWDisplay] Flask не установлен.")
-            print("[HWDisplay] Установи: pip install flask --break-system-packages")
+            print("[HWDisplay] Flask not installed.")
+            print("[HWDisplay] Run: pip install flask --break-system-packages")
 
     def clear(self):
         self.disp.clear()
@@ -63,7 +73,7 @@ class HWDisplay:
 
     def show(self, pil_img):
         rotated = pil_img.rotate(270)
-        self.disp.ShowImage(rotated)  # proxy will call push_frame itself
+        self.disp.ShowImage(rotated)  # proxy handles push_frame automatically
 
     def gpio_read(self, pin):
         return self.disp.digital_read(pin)

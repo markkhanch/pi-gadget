@@ -33,7 +33,7 @@ from ui_keyboard import OnScreenKeyboard
 
 logging.basicConfig(level=logging.INFO)
 
-# ─────────────────────────── Paths ────────────────────────────
+# ─────────────────────────── Пути ────────────────────────────
 
 BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR  = os.path.join(BASE_DIR, "assets")
@@ -46,7 +46,7 @@ BT_ON_ICON_PATH    = os.path.join(ICONS_DIR, "bt_on.png")
 BT_OFF_ICON_PATH   = os.path.join(ICONS_DIR, "bt_off.png")
 ETH_ICON_PATH      = os.path.join(ICONS_DIR, "ethernet.png")
 
-# ─────────────────────── UI States ───────────────────────────
+# ─────────────────────── Состояния UI ────────────────────────
 
 STATE_SCREENSAVER  = "screensaver"
 STATE_MAIN_MENU    = "main_menu"
@@ -59,9 +59,19 @@ STATE_APP          = "app"
 KB_MODE_RENAME     = "rename"
 KB_MODE_NEW_FOLDER = "new_folder"
 
-IDLE_TIMEOUT = 999999999.0
+def _load_config() -> dict:
+    """Load config.json from project root."""
+    cfg_path = os.path.join(BASE_DIR, "config.json")
+    try:
+        with open(cfg_path) as f:
+            return json.load(f)
+    except Exception:
+        return {}
 
-# ─────────────────────────── Utilities ────────────────────────
+_cfg         = _load_config()
+IDLE_TIMEOUT = float(_cfg.get("idle_timeout", 999999999.0))
+
+# ─────────────────────────── Утилиты ─────────────────────────
 
 def load_icon(path: str, size: int = 24) -> Image.Image:
     img = Image.open(path).convert("RGBA")
@@ -77,10 +87,11 @@ def _apply_keyboard_result(mode, target, text, current_dir):
         create_folder_named(current_dir, text)
 
 
-# ─────────────────────── Main loop ────────────────────────────
+# ─────────────────────── Главный цикл ────────────────────────
 
 def main():
     hw = HWDisplay()
+    hw.backlight(int(_cfg.get("brightness", 80)))
     fonts = load_fonts()
     font_big, font_small, font_label = fonts
 
@@ -93,7 +104,7 @@ def main():
         "off": load_icon(BT_OFF_ICON_PATH, size=24),
     }
 
-    # Ethernet icon — None if file not found (function will not break)
+    # Ethernet иконка — None если файл не найден (функция не сломается)
     try:
         eth_icon = load_icon(ETH_ICON_PATH, size=24)
     except Exception:
@@ -145,8 +156,14 @@ def main():
             monitor.sample(now)
 
             event, prev_button_states = read_buttons(hw, prev_button_states)
-
+            events = []
             if event is not None:
+                events.append(event)
+
+            # Drain remote UI button queue (handled by hw.pop_remote_event via input.py)
+
+
+            for event in events:
                 last_input_time = now
                 logging.debug("Input event: %s", event)
 
@@ -340,7 +357,7 @@ def main():
             if state != STATE_SCREENSAVER and (now - last_input_time) > IDLE_TIMEOUT:
                 state = STATE_SCREENSAVER
 
-            # Rendering
+            # Отрисовка
             if state == STATE_SCREENSAVER:
                 if now - last_clock_draw >= 1.0:
                     draw_screensaver(hw, fonts, wifi_icons, bt_icons, status, eth_icon)

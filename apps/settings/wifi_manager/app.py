@@ -137,11 +137,19 @@ def _scan_networks() -> list:
 
 
 def _get_saved_ssids() -> set:
-    """Return set of SSIDs that have saved credentials in NetworkManager."""
-    code, out = _run_shell("nmcli -t -f NAME connection show")
+    """Return set of SSIDs that have saved credentials in NetworkManager (wifi only)."""
+    code, out = _run_shell("nmcli -t -f NAME,TYPE connection show")
     if code != 0:
         return set()
-    return set(line.strip() for line in out.splitlines() if line.strip())
+    result = set()
+    for line in out.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if ":802-11-wireless" in line:
+            name = line.replace(":802-11-wireless", "")
+            result.add(name)
+    return result
 
 
 def _signal_bars(dbm: int) -> str:
@@ -157,14 +165,21 @@ def _signal_bars(dbm: int) -> str:
 def _connect_network(ssid: str, password: str) -> tuple:
     """
     Connect using nmcli. NM persists credentials automatically.
+    If password is empty and saved profile exists — use 'connection up' (no password needed).
+    If new password provided — delete old profile and reconnect.
     Returns (success, message).
     """
-    # Remove stale saved connection to avoid conflicts
-    _run_shell(f'nmcli connection delete "{ssid}" 2>/dev/null || true')
+    saved = _get_saved_ssids()
 
-    if password:
+    if not password and ssid in saved:
+        # Use saved credentials directly
+        cmd = f'sudo nmcli connection up "{ssid}"' 
+    elif password:
+        # New password — delete old profile first to avoid conflicts
+        _run_shell(f'sudo nmcli connection delete "{ssid}" 2>/dev/null || true')
         cmd = f'sudo nmcli device wifi connect "{ssid}" password "{password}" ifname wlan0'
     else:
+        # Open network
         cmd = f'sudo nmcli device wifi connect "{ssid}" ifname wlan0'
 
     code, out = _run_shell(cmd, timeout=30)
@@ -189,6 +204,28 @@ def _disconnect_network() -> tuple:
         return True, "Disconnected"
     err = out.strip().split("\n")[-1][:38] if out.strip() else "Failed"
     return False, err
+
+
+def _wifi_enabled() -> bool:
+    """Check if Wi-Fi radio is enabled (not rfkill blocked)."""
+    code, out = _run_shell("rfkill list wifi")
+    return "Soft blocked: yes" not in out
+
+
+def _wifi_off() -> tuple:
+    """Disable Wi-Fi radio via rfkill."""
+    code, out = _run_shell("sudo rfkill block wifi")
+    if code == 0:
+        return True, "Wi-Fi OFF"
+    return False, out.strip()[:38] or "Failed"
+
+
+def _wifi_on() -> tuple:
+    """Enable Wi-Fi radio via rfkill."""
+    code, out = _run_shell("sudo rfkill unblock wifi")
+    if code == 0:
+        return True, "Wi-Fi ON"
+    return False, out.strip()[:38] or "Failed"
 
 
 def _forget_network(ssid: str) -> tuple:
@@ -314,6 +351,22 @@ class WifiManagerApp:
             self._trigger_scan()
             return "stay"
 
+        if event == "KEY2":
+            # Toggle Wi-Fi radio on/off
+            if _wifi_enabled():
+                self._show_status("Turning off Wi-Fi...", True)
+                ok, msg = _wifi_off()
+            else:
+                self._show_status("Turning on Wi-Fi...", True)
+                ok, msg = _wifi_on()
+                if ok:
+                    self.networks = []
+                    self._trigger_scan()
+            self.status_ok  = ok
+            self.status_msg = msg
+            self._dirty     = True
+            return "stay"
+
         max_rows = (self.hw.H - TOP_BAR_H - BOT_BAR_H) // ROW_H
 
         if event == "UP" and self.selected > 0:
@@ -329,12 +382,13 @@ class WifiManagerApp:
             self._dirty = True
 
         elif event == "CENTER" and self.networks:
-            # Open detail screen for selected network
-            self.target_net = self.networks[self.selected]
+            # Refresh saved_ssids before opening detail — may have changed since last scan
+            self.saved_ssids = _get_saved_ssids()
+            self.target_net  = self.networks[self.selected]
             self._build_detail_items()
-            self.detail_sel = 0
-            self.screen     = self.SCREEN_DETAIL
-            self._dirty     = True
+            self.detail_sel  = 0
+            self.screen      = self.SCREEN_DETAIL
+            self._dirty      = True
 
         return "stay"
 
@@ -378,9 +432,12 @@ class WifiManagerApp:
                 self._dirty = True
 
             elif action == "connect":
-                if self.target_net["open"]:
+                is_saved = self.target_net["ssid"] in self.saved_ssids
+                if self.target_net["open"] or is_saved:
+                    # Open or saved network — connect without password prompt
                     self._do_connect("")
                 else:
+                    # Unknown encrypted network — ask for password
                     self.screen = self.SCREEN_PASS
                     self.keyboard.start(
                         f"Password: {self.target_net['ssid'][:12]}",
@@ -481,7 +538,7 @@ class WifiManagerApp:
             self._draw_header(draw, W, f"Wi-Fi [{ssid_short}]", f"K1:{countdown}s")
 
         # Bottom hint
-        bot = "CTR:details  K3:exit"
+        bot = "K2:WiFi  CTR:details  K3:exit"
         bw, bh = self._ts(draw, bot, self.font_label)
         draw.text(((W - bw) // 2, H - bh - 2),
                   bot, font=self.font_label, fill=HINT_COLOR)
