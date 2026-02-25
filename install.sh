@@ -12,6 +12,11 @@ sudo apt install -y \
   python3-numpy python3-pil \
   fonts-dejavu
 
+echo "[*] Installing network tools..."
+sudo apt install -y \
+  nmap \
+  arp-scan
+
 echo "[*] Installing Python packages from requirements.txt..."
 pip3 install --break-system-packages -r requirements.txt
 
