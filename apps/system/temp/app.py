@@ -1,6 +1,6 @@
 """
 apps/system/temp/app.py
-Температура процессора с цветным индикатором и графиком истории.
+CPU temperature monitor with color indicator and history graph.
 """
 
 from PIL import Image, ImageDraw, ImageFont
@@ -37,15 +37,15 @@ def _temp_label(temp: float) -> str:
 
 def _fit_font(text: str, max_w: int, max_h: int, fallback) -> ImageFont.FreeTypeFont:
     """
-    Подбирает максимальный размер шрифта так, чтобы текст
-    влезал в max_w x max_h. Начинает с 48, уменьшает до 12.
+    Find the largest font size that fits text within max_w x max_h.
+    Tries sizes from 48 down to 12.
     """
     for size in range(48, 11, -1):
         try:
             f = ImageFont.truetype(FONT_PATH, size)
         except Exception:
             return fallback
-        # используем getbbox напрямую у шрифта — быстрее
+        # use font.getbbox directly — faster
         bbox = f.getbbox(text)
         w = bbox[2] - bbox[0]
         h = bbox[3] - bbox[1]
@@ -113,7 +113,7 @@ class TempApp:
         color = _temp_color(temp)
         label = _temp_label(temp)
 
-        # ── Шапка ───────────────────────────────────────────
+        # ── Header ──────────────────────────────────────────
         draw.rectangle([(0, 0), (W, TOP_BAR_H)], fill=HEADER_BG)
 
         title = "Temperature"
@@ -121,7 +121,7 @@ class TempApp:
         draw.text(((W - tw) // 2, (TOP_BAR_H - th) // 2),
                   title, font=self.font_label, fill=WHITE)
 
-        # бейдж справа
+        # badge on the right
         bp  = 4
         bw, bh = self._ts(draw, label, self.font_label)
         bx  = W - bw - bp * 2 - 4
@@ -135,16 +135,16 @@ class TempApp:
 
         draw.line([(0, TOP_BAR_H), (W, TOP_BAR_H)], fill=SEP_COLOR, width=1)
 
-        # ── Блок с числом ─────────────────────────────────────
+        # ── Temperature number block ──────────────────────────
         MARGIN   = 8
-        NUM_PAD  = 8                          # отступ внутри блока
-        # область доступная для блока с числом
+        NUM_PAD  = 8                          # inner padding
+        # area available for the number block
         num_area_w = W - MARGIN * 2
-        num_area_h = 70                       # резервируем 70px под число
+        num_area_h = 70                       # 70px reserved for number
 
         temp_str  = f"{temp:.1f}°C"
 
-        # подбираем шрифт — текст должен влезать в блок минус padding
+        # pick font size — text must fit inside block minus padding
         font_temp = _fit_font(
             temp_str,
             num_area_w - NUM_PAD * 2,
@@ -154,7 +154,7 @@ class TempApp:
 
         tw2, th2 = self._ts(draw, temp_str, font_temp)
 
-        # рисуем блок строго по num_area, текст центрируем внутри
+        # draw block within num_area, center text inside
         block_x0 = MARGIN
         block_y0 = TOP_BAR_H + 8
         block_x1 = W - MARGIN
@@ -166,12 +166,12 @@ class TempApp:
             radius=8, fill=bg, outline=color, width=2
         )
 
-        # текст точно по центру блока
+        # text exactly centered in block
         tx = block_x0 + (num_area_w - tw2) // 2
         ty = block_y0 + (num_area_h - th2) // 2
         draw.text((tx, ty), temp_str, font=font_temp, fill=WHITE)
 
-        # ── График ───────────────────────────────────────────
+        # ── Graph ────────────────────────────────────────────
         graph_top  = block_y1 + 8
         bot_hint_y = H - BOT_BAR_H
         graph_bot  = bot_hint_y - 4
@@ -182,7 +182,7 @@ class TempApp:
                              W - MARGIN, graph_bot,
                              hist, color)
 
-        # ── Подсказка ────────────────────────────────────────
+        # ── Hint ─────────────────────────────────────────────
         hint = "KEY3: back"
         hw2, hh2 = self._ts(draw, hint, self.font_label)
         draw.text(((W - hw2) // 2, H - hh2 - 2),

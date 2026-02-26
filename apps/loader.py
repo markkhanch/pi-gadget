@@ -4,7 +4,7 @@ import logging
 def load_app(module_name: str, hw, fonts, monitor):
     """
     module_name: 'system.cpu_ram' → apps/system/cpu_ram/app.py
-    monitor: SystemMonitor из core.monitor
+    monitor: SystemMonitor from core.monitor
     """
     try:
         mod = importlib.import_module(f"apps.{module_name}.app")
@@ -22,7 +22,7 @@ def load_app(module_name: str, hw, fonts, monitor):
         logging.warning("No *App class found in %s", module_name)
         return None
 
-    # сначала пробуем (hw, fonts, monitor), если класс старый — падаем на (hw, fonts)
+    # try (hw, fonts, monitor) first, fall back to (hw, fonts) for older apps
     try:
         return app_cls(hw, fonts, monitor)
     except TypeError:

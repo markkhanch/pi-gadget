@@ -33,7 +33,7 @@ Controls:
 import subprocess
 import time
 from PIL import Image, ImageDraw
-from ui_keyboard import OnScreenKeyboard
+from core.ui_keyboard import OnScreenKeyboard
 
 # ── Style ─────────────────────────────────────────────────────
 TOP_BAR_H  = 24

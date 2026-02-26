@@ -1,9 +1,9 @@
 """
-remote_ui.py v3 — long polling, без задержки на один кадр.
+remote_ui.py v3 — long polling, zero one-frame delay.
 
-Браузер отправляет GET /frame?last_id=N
-Сервер держит соединение открытым пока не появится кадр с id > N,
-затем сразу отдаёт его. Браузер получает кадр немедленно после push_frame().
+Browser sends GET /frame?last_id=N
+Server holds the connection open until a frame with id > N appears,
+then returns it immediately. Browser gets the frame right after push_frame().
 """
 
 import io
@@ -109,8 +109,8 @@ HTML = r"""<!DOCTYPE html>
   let currentId = -1;
   let active = true;
 
-  // Long polling: отправляем запрос с last_id,
-  // сервер держит его пока не появится новый кадр и сразу отвечает.
+  // Long polling: send request with last_id,
+  // server holds it until a new frame appears, then responds immediately.
   async function fetchNextFrame() {
     try {
       const res = await fetch('/next_frame?last_id=' + currentId);
@@ -132,7 +132,7 @@ HTML = r"""<!DOCTYPE html>
       fb.className = 'err';
       await new Promise(r => setTimeout(r, 500));
     }
-    if (active) fetchNextFrame(); // сразу запрашиваем следующий
+    if (active) fetchNextFrame(); // immediately request the next frame
   }
 
   fetchNextFrame();
@@ -168,7 +168,7 @@ class RemoteUI:
         self._lock = threading.Lock()
         self._frame_data: bytes = b''
         self._frame_id: int = 0
-        self._frame_event = threading.Event()  # сигнал что появился новый кадр
+        self._frame_event = threading.Event()  # signals that a new frame is available
 
         self._app = Flask(__name__)
         self._setup_routes()
@@ -183,8 +183,8 @@ class RemoteUI:
         @app.route('/next_frame')
         def next_frame():
             """
-            Long polling: ждём пока frame_id > last_id, затем отдаём кадр.
-            Браузер получает ответ сразу после push_frame() — без задержки.
+            Long polling: wait until frame_id > last_id, then return the frame.
+            Browser gets the response immediately after push_frame() — no delay.
             """
             try:
                 last_id = int(request.args.get('last_id', -1))
@@ -206,10 +206,10 @@ class RemoteUI:
                     resp.headers['X-Frame-Id'] = str(fid)
                     return resp
 
-                # Ждём сигнала о новом кадре (или timeout)
+                # Wait for new frame signal (or timeout)
                 remaining = deadline - time.time()
                 if remaining <= 0:
-                    # Отдаём текущий кадр по таймауту (screensaver и т.п.)
+                    # Return current frame on timeout (screensaver etc.)
                     with self._lock:
                         data = self._frame_data
                         fid = self._frame_id
@@ -236,13 +236,13 @@ class RemoteUI:
             return resp
 
     def push_frame(self, img):
-        """Принять PIL.Image — вызывать после каждого hw.show()."""
+        """Accept PIL.Image — call after every hw.show()."""
         buf = io.BytesIO()
         img.save(buf, format='JPEG', quality=75)
         with self._lock:
             self._frame_data = buf.getvalue()
             self._frame_id += 1
-        # Сигналим всем ждущим потокам что есть новый кадр
+        # Signal all waiting threads that a new frame is ready
         self._frame_event.set()
 
     def start(self):

@@ -33,7 +33,7 @@ from core.ui_keyboard import OnScreenKeyboard
 
 logging.basicConfig(level=logging.INFO)
 
-# ─────────────────────────── Пути ────────────────────────────
+# ── Paths ───────────────────────────────────────────────────
 
 BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR  = os.path.join(BASE_DIR, "assets")
@@ -46,7 +46,7 @@ BT_ON_ICON_PATH    = os.path.join(ICONS_DIR, "bt_on.png")
 BT_OFF_ICON_PATH   = os.path.join(ICONS_DIR, "bt_off.png")
 ETH_ICON_PATH      = os.path.join(ICONS_DIR, "ethernet.png")
 
-# ─────────────────────── Состояния UI ────────────────────────
+# ── UI States ───────────────────────────────────────────────
 
 STATE_SCREENSAVER  = "screensaver"
 STATE_MAIN_MENU    = "main_menu"
@@ -71,7 +71,7 @@ def _load_config() -> dict:
 _cfg         = _load_config()
 IDLE_TIMEOUT = float(_cfg.get("idle_timeout", 999999999.0))
 
-# ─────────────────────────── Утилиты ─────────────────────────
+# ── Utilities ────────────────────────────────────────────────
 
 def load_icon(path: str, size: int = 24) -> Image.Image:
     img = Image.open(path).convert("RGBA")
@@ -87,7 +87,7 @@ def _apply_keyboard_result(mode, target, text, current_dir):
         create_folder_named(current_dir, text)
 
 
-# ─────────────────────── Главный цикл ────────────────────────
+# ── Main Loop ───────────────────────────────────────────────
 
 def main():
     hw = HWDisplay()
@@ -104,7 +104,7 @@ def main():
         "off": load_icon(BT_OFF_ICON_PATH, size=24),
     }
 
-    # Ethernet иконка — None если файл не найден (функция не сломается)
+    # Ethernet icon — None if file not found (function won't crash)
     try:
         eth_icon = load_icon(ETH_ICON_PATH, size=24)
     except Exception:
@@ -357,7 +357,7 @@ def main():
             if state != STATE_SCREENSAVER and (now - last_input_time) > IDLE_TIMEOUT:
                 state = STATE_SCREENSAVER
 
-            # Отрисовка
+            # Render
             if state == STATE_SCREENSAVER:
                 if now - last_clock_draw >= 1.0:
                     draw_screensaver(hw, fonts, wifi_icons, bt_icons, status, eth_icon)

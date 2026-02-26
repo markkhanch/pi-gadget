@@ -1,6 +1,6 @@
 """
 apps/system/disk/app.py
-Использование диска с баром и круговой диаграммой.
+Disk usage with progress bar and donut chart.
 """
 
 import shutil
@@ -67,26 +67,26 @@ class DiskApp:
 
     def _draw_donut(self, draw, cx, cy, r_out, r_in, pct, color):
         """
-        Рисует простую кольцевую диаграмму.
-        Закрашенный сектор = used, серый = free.
+        Draw a simple donut chart.
+        Filled sector = used, gray = free.
         """
-        start_angle = -90          # 12 часов
+        start_angle = -90          # 12 o'clock position
         used_angle  = 360 * pct / 100.0
         free_angle  = 360 - used_angle
 
         def arc_bbox(r):
             return [(cx - r, cy - r), (cx + r, cy + r)]
 
-        # фон (free) — тёмно-серый
+        # background (free) — dark gray
         draw.arc(arc_bbox(r_out), start_angle, start_angle + 360,
                  fill=(50, 50, 50), width=r_out - r_in)
 
-        # used — цветной
+        # used — colored arc
         if used_angle > 0:
             draw.arc(arc_bbox(r_out), start_angle, start_angle + used_angle,
                      fill=color, width=r_out - r_in)
 
-        # процент в центре
+        # percentage label in center
         pct_str = f"{pct:.0f}%"
         pw, ph  = self._ts(draw, pct_str, self.font_label)
         draw.text((cx - pw // 2, cy - ph // 2),
@@ -98,7 +98,7 @@ class DiskApp:
         draw  = ImageDraw.Draw(img)
         color = _disk_color(self.used_pct)
 
-        # ── Шапка ───────────────────────────────────────────
+        # ── Header ──────────────────────────────────────────
         draw.rectangle([(0, 0), (W, TOP_BAR_H)], fill=HEADER_BG)
         title = "Disk Usage"
         tw, th = self._ts(draw, title, self.font_label)
@@ -106,7 +106,7 @@ class DiskApp:
                   title, font=self.font_label, fill=WHITE)
         draw.line([(0, TOP_BAR_H), (W, TOP_BAR_H)], fill=SEP_COLOR, width=1)
 
-        # ── Левая колонка: цифры ─────────────────────────────
+        # ── Left column: numbers ────────────────────────────
         MARGIN   = 6
         col_split = W // 2 - 4
         y        = TOP_BAR_H + 10
@@ -119,7 +119,7 @@ class DiskApp:
         line_h = self.font_label.size + 6
 
         for key, val in lines:
-            # ключ — серым, значение — белым
+            # key — gray, value — white
             kw, kh = self._ts(draw, key + ": ", self.font_label)
             draw.text((MARGIN, y), key + ": ",
                       font=self.font_label, fill=(150, 150, 150))
@@ -127,7 +127,7 @@ class DiskApp:
                       font=self.font_label, fill=WHITE)
             y += line_h
 
-        # ── Правая колонка: кольцевая диаграмма ─────────────
+        # ── Right column: donut chart ───────────────────────
         bot_hint_y = H - BOT_BAR_H
         right_area_h = bot_hint_y - TOP_BAR_H
         cx = col_split + (W - col_split) // 2
@@ -138,7 +138,7 @@ class DiskApp:
 
         self._draw_donut(draw, cx, cy, r_out, r_in, self.used_pct, color)
 
-        # ── Бар во всю ширину под цифрами ────────────────────
+        # ── Full-width bar below numbers ────────────────────
         bar_top = y + 6
         bar_h   = 12
         bar_w   = col_split - MARGIN
@@ -151,13 +151,13 @@ class DiskApp:
                             MARGIN + fill_w, bar_top + bar_h - 1],
                            fill=color)
 
-        # деления 25/50/75% под баром (снаружи)
+        # tick marks at 25/50/75% below bar
         for frac in (0.25, 0.5, 0.75):
             x = MARGIN + int(bar_w * frac)
             draw.line([(x, bar_top + bar_h + 1), (x, bar_top + bar_h + 4)],
                       fill=(80, 80, 80), width=1)
 
-        # ── Подсказка снизу ──────────────────────────────────
+        # ── Bottom hint ─────────────────────────────────────
         hint = "KEY3: back"
         hw2, hh2 = self._ts(draw, hint, self.font_label)
         draw.text(((W - hw2) // 2, H - hh2 - 2),

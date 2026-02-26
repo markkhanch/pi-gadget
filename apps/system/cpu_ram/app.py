@@ -1,14 +1,14 @@
 """
 apps/system/cpu_ram/app.py
-CPU & RAM монитор с графиком истории.
+CPU & RAM monitor with usage history graph.
 """
 
 from PIL import Image, ImageDraw
 
 
-# ── Общие константы стиля ────────────────────────────────────
-TOP_BAR_H   = 24   # высота шапки
-BOT_BAR_H   = 20   # высота подсказки снизу
+# ── Style constants ─────────────────────────────────────────
+TOP_BAR_H   = 24   # header height
+BOT_BAR_H   = 20   # bottom hint height
 BG_COLOR    = (0, 0, 0)
 HEADER_BG   = (20, 20, 20)
 SEP_COLOR   = (60, 60, 60)
@@ -18,7 +18,7 @@ WHITE       = (255, 255, 255)
 
 
 def _bar_color(pct: float):
-    """Зелёный → жёлтый → красный в зависимости от нагрузки."""
+    """Green → yellow → red based on load percentage."""
     if pct < 60:
         return (70, 200, 70)
     elif pct < 85:
@@ -47,14 +47,14 @@ class CpuRamApp:
         pass
 
     def _draw_bar(self, draw, x, y, w, h, pct, color):
-        """Рисует прямоугольный бар с рамкой."""
+        """Draw a rectangular progress bar with border."""
         draw.rectangle([x, y, x + w, y + h], outline=SEP_COLOR, width=1)
         fill_w = max(0, int((w - 2) * pct / 100.0))
         if fill_w > 0:
             draw.rectangle([x + 1, y + 1, x + fill_w, y + h - 1], fill=color)
 
     def _draw_graph(self, draw, x0, y0, x1, y1, vals, color):
-        """Рисует линейный график в заданной области."""
+        """Draw a line graph within the given bounds."""
         if len(vals) < 2:
             return
         gw = x1 - x0
@@ -65,7 +65,7 @@ class CpuRamApp:
 
         draw.rectangle([x0, y0, x1, y1], outline=SEP_COLOR, width=1)
 
-        # горизонтальные направляющие на 25 / 50 / 75 %
+        # horizontal guide lines at 25 / 50 / 75 %
         for frac in (0.25, 0.5, 0.75):
             gy = int(y1 - gh * frac)
             draw.line([(x0 + 1, gy), (x1 - 1, gy)], fill=(35, 35, 35), width=1)
@@ -80,7 +80,7 @@ class CpuRamApp:
         for i in range(1, len(pts)):
             draw.line([pts[i - 1], pts[i]], fill=color, width=1)
 
-        # подписи min/max справа
+        # min/max labels on the right side
         for label, gy in [(f"{int(vmax)}%", y0), (f"{int(vmin)}%", y1)]:
             lw, lh = self._ts(draw, label, self.font_label)
             draw.text((x1 - lw - 2, gy + 1), label,
@@ -97,7 +97,7 @@ class CpuRamApp:
         mem_pct  = (mem_used / mem_tot * 100) if mem_tot > 0 else 0
         hist     = self.monitor.cpu_history
 
-        # ── Шапка ───────────────────────────────────────────
+        # ── Header ──────────────────────────────────────────
         draw.rectangle([(0, 0), (W, TOP_BAR_H)], fill=HEADER_BG)
         title = "CPU / RAM"
         tw, th = self._ts(draw, title, self.font_label)
@@ -105,7 +105,7 @@ class CpuRamApp:
                   title, font=self.font_label, fill=WHITE)
         draw.line([(0, TOP_BAR_H), (W, TOP_BAR_H)], fill=SEP_COLOR, width=1)
 
-        # ── Зона контента ────────────────────────────────────
+        # ── Content area ────────────────────────────────────
         MARGIN   = 6
         BAR_H    = 14
         y        = TOP_BAR_H + 8
@@ -123,7 +123,7 @@ class CpuRamApp:
         ram_color = _bar_color(mem_pct)
         ram_label = f"RAM  {mem_used}/{mem_tot} MiB  ({mem_pct:.0f}%)"
         lw, lh = self._ts(draw, ram_label, self.font_label)
-        # если строка не влезает — укорачиваем
+        # truncate if string doesn't fit
         if lw > W - MARGIN * 2:
             ram_label = f"RAM  {mem_used}/{mem_tot} MiB"
         draw.text((MARGIN, y), ram_label, font=self.font_label, fill=LABEL_COLOR)
@@ -131,7 +131,7 @@ class CpuRamApp:
         self._draw_bar(draw, MARGIN, y, W - MARGIN * 2, BAR_H, mem_pct, ram_color)
         y += BAR_H + 8
 
-        # --- График CPU ---
+        # --- CPU graph ---
         bot_hint_y = H - BOT_BAR_H
         graph_top  = y
         graph_bot  = bot_hint_y - 4
@@ -142,7 +142,7 @@ class CpuRamApp:
                              W - MARGIN, graph_bot,
                              hist, (100, 180, 255))
 
-        # ── Подсказка снизу ──────────────────────────────────
+        # ── Bottom hint ─────────────────────────────────────
         hint = "KEY3: back"
         hw2, hh2 = self._ts(draw, hint, self.font_label)
         draw.text(((W - hw2) // 2, H - hh2 - 2),

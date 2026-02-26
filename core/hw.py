@@ -3,7 +3,7 @@ from core import ST7789
 from PIL import Image
 
 try:
-    from remote_ui import RemoteUI
+    from core.remote_ui import RemoteUI
     _REMOTE_AVAILABLE = True
 except ImportError:
     _REMOTE_AVAILABLE = False
