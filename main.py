@@ -29,7 +29,7 @@ from ui.list_view import draw_list_view
 from ui.options_menu import draw_options_menu, OPTIONS_ITEMS
 
 from apps.loader import load_app
-from ui_keyboard import OnScreenKeyboard
+from core.ui_keyboard import OnScreenKeyboard
 
 logging.basicConfig(level=logging.INFO)
 

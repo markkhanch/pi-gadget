@@ -1,5 +1,5 @@
 import queue
-import ST7789
+from core import ST7789
 from PIL import Image
 
 try:

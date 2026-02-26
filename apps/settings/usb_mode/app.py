@@ -38,7 +38,7 @@ ORANGE  = (255, 140, 30)
 
 SETUP_SCRIPT = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
-    "..", "..", "..", "usb_gadget_setup.sh"
+    "..", "..", "..", "scripts", "usb_gadget_setup.sh"
 )
 
 MODES = [

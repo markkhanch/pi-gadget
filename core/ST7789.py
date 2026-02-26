@@ -1,6 +1,6 @@
 
 import time
-import config
+from core import config
 
 class ST7789(config.RaspberryPi):
 
