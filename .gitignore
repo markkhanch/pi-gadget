@@ -24,3 +24,4 @@ usb_storage.img
 **/.meta.json
 menu_fs/04_files/evil_twin_log.jsonl
 menu_fs/04_files/portals/
+menu_fs/04_files/wardriving/
