@@ -20,3 +20,7 @@ config.json
 config.json
 config.json
 usb_storage.img
+# Sensitive data
+**/.meta.json
+menu_fs/04_files/evil_twin_log.jsonl
+menu_fs/04_files/portals/
