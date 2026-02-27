@@ -78,3 +78,6 @@ echo "  Then use Settings → USB Mode to switch between keyboard / storage."
 echo ""
 echo "  To run the gadget:"
 echo "    python3 main.py"
+
+# Allow gpsd without sudo password
+echo "$USER ALL=(ALL) NOPASSWD: /usr/sbin/gpsd" | sudo tee /etc/sudoers.d/pi-gadget-gpsd > /dev/null
