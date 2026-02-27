@@ -152,7 +152,7 @@ def _hid_report(modifier: int, keycode: int) -> bytes:
 _RELEASE = _hid_report(0, 0)
 
 
-def _send_key(fd, modifier: int, keycode: int, delay: float = 0.05):
+def _send_key(fd, modifier: int, keycode: int, delay: float = 0.02):
     fd.write(_hid_report(modifier, keycode))
     fd.flush()
     time.sleep(delay)

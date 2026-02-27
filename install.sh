@@ -18,6 +18,8 @@ sudo apt update
 
 echo "[*] Installing system packages (Python, SPI, fonts)..."
 sudo apt install -y \
+  hostapd \
+  iptables \
   python3 python3-pip python3-dev \
   python3-rpi.gpio python3-spidev \
   python3-numpy python3-pil \
@@ -25,6 +27,8 @@ sudo apt install -y \
 
 echo "[*] Installing network tools..."
 sudo apt install -y \
+  hostapd \
+  iptables \
   nmap \
   arp-scan \
   dosfstools

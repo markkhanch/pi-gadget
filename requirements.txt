@@ -1,8 +1,8 @@
-ST7789
+flask
+gpiozero
+lgpio
+numpy
 Pillow
 RPi.GPIO
 spidev
-numpy
-gpiozero
-lgpio
-flask
+ST7789
