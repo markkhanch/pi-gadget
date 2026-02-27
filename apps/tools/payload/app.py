@@ -45,7 +45,8 @@ YELLOW  = (255, 200, 50)
 RED     = (255, 70,  70)
 ORANGE  = (255, 140, 30)
 
-PAYLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "payloads")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+PAYLOADS_DIR = os.path.join(BASE_DIR, "menu_fs", "04_files", "payloads")
 HID_DEVICE   = "/dev/hidg0"
 
 SCREEN_LIST    = "list"
