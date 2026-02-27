@@ -78,7 +78,7 @@ STATE_RUNNING = "running"
 STATE_CREDS   = "creds"
 STATE_STOP    = "stop"
 
-BUILTIN_TEMPLATES = ["generic", "google", "starbucks", "hotel", "corporate"]
+BUILTIN_TEMPLATES = []
 CHANNELS          = [1, 6, 11]
 
 
@@ -426,11 +426,6 @@ class EvilTwinApp:
                 vw, vh = self._ts(d, val_t, self.font_label)
                 d.text((W - vw - M, y + 4), val_t,
                        font=self.font_label, fill=color if is_sel else DIM)
-                # Second line: larger value
-                val2 = self._trunc(d, val, self.font_label, W - M * 2 - 6)
-                d.text((M + 6, y + lh + 6), val2,
-                       font=self.font_label,
-                       fill=color if is_sel else (40, 60, 90))
             else:
                 # Start button row
                 vw, vh = self._ts(d, val, self.font_label)

