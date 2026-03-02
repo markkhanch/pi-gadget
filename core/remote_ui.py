@@ -249,7 +249,7 @@ class RemoteUI:
         import logging
         logging.getLogger('werkzeug').setLevel(logging.ERROR)
         t = threading.Thread(
-            target=lambda: self._app.run(host=self.host, port=self.port, threaded=True),
+            target=lambda: self._app.run(host=self.host, port=self.port, threaded=True, use_reloader=False),
             daemon=True
         )
         t.start()

@@ -4,7 +4,7 @@ apps/tools/evil_twin/portal_server.py
 Captive portal web server.
 
 - Loads HTML templates ONLY from menu_fs/04_files/portals/
-- Logs captured credentials to menu_fs/04_files/evil_twin_log.jsonl (persistent)
+- Logs captured credentials to menu_fs/02_files/evil_twin_log.jsonl (persistent)
 - Handles captive portal detection for iOS, Android, Windows
 
 Run as: sudo python3 portal_server.py <template_name_or_path> <log_file>
@@ -36,7 +36,7 @@ def _load_template() -> str:
     # Name-based lookup in portals dir
     portals_dir = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
-        "..", "..", "..", "menu_fs", "04_files", "portals"
+        "..", "..", "..", "menu_fs", "02_files", "portals"
     )
     portals_dir = os.path.realpath(portals_dir)
 

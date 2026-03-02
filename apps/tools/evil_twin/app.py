@@ -68,7 +68,7 @@ PORTAL_PY = os.path.join(
 )
 PORTALS_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
-    "..", "..", "..", "menu_fs", "04_files", "portals"
+    "..", "..", "..", "menu_fs", "02_files", "portals"
 )
 
 STATE_CONFIG  = "config"

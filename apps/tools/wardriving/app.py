@@ -54,7 +54,7 @@ PURPLE = (160, 80,  255)
 
 OUTPUT_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
-    "..", "..", "..", "menu_fs", "04_files", "wardriving"
+    "..", "..", "..", "menu_fs", "02_files", "wardriving"
 )
 
 # Known GPS device paths to probe
@@ -231,23 +231,23 @@ class WardrivingApp:
                 try:
                     report = session.next()
                     if report["class"] == "TPV":
-                        lat = getattr(report, "lat", None)
-                        lon = getattr(report, "lon", None)
-                        if lat and lon and lat != gpslib.nan:
+                        lat = report.get("lat", None)
+                        lon = report.get("lon", None)
+                        if lat and lon:
                             self._lat  = lat
                             self._lon  = lon
                             self._fix  = True
-                            spd = getattr(report, "speed", 0)
+                            spd = report.get("speed", 0)
                             self._speed = (
                                 spd * 3.6
-                                if spd and spd != gpslib.nan
+                                if spd
                                 else 0
                             )
                             self._dirty = True
                     elif report["class"] == "SKY":
-                        sats = getattr(report, "satellites", [])
+                        sats = report.get("satellites", [])
                         self._sats  = sum(
-                            1 for s in sats if getattr(s, "used", False)
+                            1 for s in sats if s.get("used", False)
                         )
                         self._dirty = True
                 except StopIteration:

@@ -1,82 +1,175 @@
 """
 ui/list_view.py
-List of apps and folders inside the selected category.
+Updated to show file size/type alongside name.
 """
 
 from PIL import Image, ImageDraw
 
+BG     = (4,   8,   16)
+HDR_BG = (8,   14,  28)
+SEL_BG = (12,  25,  50)
+SEP    = (25,  45,  75)
+SEP_HI = (50,  90,  140)
+WHITE  = (220, 235, 255)
+DIM    = (70,  100, 140)
+HINT   = (50,  75,  110)
+CYAN   = (0,   210, 255)
+GREEN  = (50,  220, 120)
+YELLOW = (255, 200, 50)
+PURPLE = (160, 80,  255)
+RED    = (255, 70,  70)
+ORANGE = (255, 140, 30)
+
+# Extension color coding
+EXT_COLORS = {
+    ".csv":  GREEN,
+    ".gpx":  CYAN,
+    ".html": ORANGE,
+    ".ds":   YELLOW,
+    ".txt":  WHITE,
+    ".json": PURPLE,
+    ".log":  DIM,
+    ".jsonl":DIM,
+    ".py":   CYAN,
+    ".sh":   YELLOW,
+}
+
+ROW_H   = 30
+ICON_S  = 20
+TOP_H   = 26
+BOT_H   = 18
+
 
 def _text_size(draw, text, font):
-    bbox = draw.textbbox((0, 0), text, font=font)
-    return bbox[2] - bbox[0], bbox[3] - bbox[1]
+    b = draw.textbbox((0, 0), text, font=font)
+    return b[2] - b[0], b[3] - b[1]
 
 
-def draw_list_view(hw, fonts, entries, selected_index, scroll_offset, folder_name):
+def _trunc(draw, text, font, max_w):
+    while text:
+        w, _ = _text_size(draw, text, font)
+        if w <= max_w:
+            return text
+        text = text[:-2] + "…"
+    return ""
+
+
+def draw_list_view(hw, fonts, entries, selected_index, scroll,
+                   dir_name: str, clipboard_name: str = ""):
     """
-    Draws the folder contents list.
+    Draw file/folder list.
 
-    hw             — HWDisplay
-    fonts          — (font_big, font_small, font_label)
-    entries        — list of entries from load_list_entries()
-    selected_index — selected item
-    scroll_offset  — first visible row
-    folder_name    — current folder name (for the header)
+    Each row shows:
+      [icon]  [name]                    [size/count]
+    Selected row has accent bar on left and highlight background.
     """
     font_big, font_small, font_label = fonts
-    width, height = hw.W, hw.H
+    W, H = hw.W, hw.H
 
-    image = Image.new("RGB", (width, height), (0, 0, 0))
-    draw = ImageDraw.Draw(image)
+    img  = Image.new("RGB", (W, H), BG)
+    draw = ImageDraw.Draw(img)
 
-    # --- Header ---
-    top_bar_h = 30
-    hint = "KEY2: OPT"
+    # ── Header ────────────────────────────────────────────────
+    draw.rectangle([(0, 0), (W, TOP_H)], fill=HDR_BG)
+    draw.rectangle([(0, 0), (3, TOP_H)], fill=CYAN)
+    name_t = _trunc(draw, dir_name, font_label, W - 80)
+    tw, th = _text_size(draw, name_t, font_label)
+    draw.text((10, (TOP_H - th) // 2), name_t,
+              font=font_label, fill=WHITE)
 
-    title_w, title_h = _text_size(draw, folder_name, font_label)
-    hint_w,  hint_h  = _text_size(draw, hint, font_label)
+    # Item count badge
+    count_s = f"{len(entries)} items" if entries else "empty"
+    cw, ch  = _text_size(draw, count_s, font_label)
+    draw.text((W - cw - 4, (TOP_H - ch) // 2), count_s,
+              font=font_label, fill=DIM)
 
-    draw.text((4, (top_bar_h - title_h) // 2),
-              folder_name, font=font_label, fill=(255, 255, 255))
-    draw.text((width - hint_w - 4, (top_bar_h - hint_h) // 2),
-              hint, font=font_label, fill=(180, 180, 180))
-    draw.line([(0, top_bar_h), (width, top_bar_h)], fill=(80, 80, 80), width=1)
+    draw.line([(0, TOP_H), (W, TOP_H)], fill=SEP_HI, width=1)
 
-    # --- List ---
-    row_h    = 30
-    max_rows = (height - top_bar_h) // row_h
-    icon_size = 20
+    # ── Entry rows ────────────────────────────────────────────
+    max_rows = (H - TOP_H - BOT_H) // ROW_H
+    y        = TOP_H
 
     if not entries:
-        msg = "Empty"
-        msg_w, msg_h = _text_size(draw, msg, font_label)
-        draw.text(((width - msg_w) // 2, top_bar_h + (height - top_bar_h - msg_h) // 2),
-                  msg, font=font_label, fill=(180, 180, 180))
+        msg = "Empty folder"
+        mw, mh = _text_size(draw, msg, font_label)
+        draw.text(((W - mw) // 2, y + 30), msg,
+                  font=font_label, fill=DIM)
     else:
-        start = scroll_offset
-        end   = min(start + max_rows, len(entries))
+        for idx in range(scroll, min(scroll + max_rows, len(entries))):
+            entry  = entries[idx]
+            is_sel = idx == selected_index
+            y1     = y + ROW_H
 
-        for row, idx in enumerate(range(start, end)):
-            entry = entries[idx]
-            y0 = top_bar_h + row * row_h
-            y1 = y0 + row_h
+            # Row background
+            if is_sel:
+                draw.rectangle([(0, y), (W, y1 - 1)], fill=SEL_BG)
 
-            # highlight selected
-            if idx == selected_index:
-                draw.rectangle(
-                    [(0, y0), (width - 1, y1 - 1)],
-                    fill=(40, 40, 40), outline=(255, 255, 255), width=1
-                )
+            # Accent bar on left for selected
+            entry_type = entry.get("type", "file")
+            if is_sel:
+                bar_color = {
+                    "folder": CYAN,
+                    "app":    YELLOW,
+                    "file":   EXT_COLORS.get(entry.get("ext", ""), GREEN),
+                }.get(entry_type, WHITE)
+                draw.rectangle([(0, y), (3, y1 - 1)], fill=bar_color)
 
-            # icon
-            icon = entry["icon_image"].resize((icon_size, icon_size), Image.LANCZOS)
-            icon_x = 4
-            icon_y = y0 + (row_h - icon_size) // 2
-            image.paste(icon, (icon_x, icon_y), icon)
+            # Icon
+            icon = entry.get("icon_image")
+            M    = 6
+            if icon:
+                try:
+                    icon_r = icon.resize((ICON_S, ICON_S), 1)
+                    img.paste(icon_r, (M + 2, y + (ROW_H - ICON_S) // 2), icon_r)
+                except Exception:
+                    pass
 
-            # label
-            label_x = icon_x + icon_size + 6
-            label_y = y0 + (row_h - font_label.size) // 2
-            draw.text((label_x, label_y),
-                      entry["display_name"], font=font_label, fill=(255, 255, 255))
+            # Name
+            name_x  = M + ICON_S + 8
+            name_col = WHITE if is_sel else (DIM if entry_type == "app" else WHITE)
 
-    hw.show(image)
+            # Right side: size/count
+            size_str = entry.get("size_str", "")
+            sw, sh   = _text_size(draw, size_str, font_label) if size_str else (0, 0)
+            name_max = W - name_x - sw - 8
+
+            name_t = _trunc(draw, entry["display_name"], font_label, name_max)
+            nw, nh = _text_size(draw, name_t, font_label)
+            draw.text((name_x, y + (ROW_H - nh) // 2), name_t,
+                      font=font_label, fill=name_col)
+
+            if size_str:
+                size_col = EXT_COLORS.get(entry.get("ext", ""), DIM)
+                if entry_type == "folder":
+                    size_col = CYAN
+                elif entry_type == "app":
+                    size_col = YELLOW
+                draw.text((W - sw - 4, y + (ROW_H - sh) // 2), size_str,
+                          font=font_label, fill=size_col if is_sel else DIM)
+
+            # Separator
+            draw.line([(0, y1 - 1), (W, y1 - 1)], fill=SEP, width=1)
+            y += ROW_H
+
+    # ── Scrollbar ─────────────────────────────────────────────
+    if len(entries) > max_rows:
+        sb_h   = H - TOP_H - BOT_H
+        thumb  = max(6, sb_h * max_rows // len(entries))
+        offset = sb_h * scroll // len(entries)
+        draw.rectangle([(W - 3, TOP_H + offset),
+                         (W - 1, TOP_H + offset + thumb)],
+                        fill=CYAN)
+
+    # ── Hint bar ──────────────────────────────────────────────
+    draw.line([(0, H - BOT_H), (W, H - BOT_H)], fill=SEP, width=1)
+
+    if clipboard_name:
+        hint = f"📋{clipboard_name[:10]}  K2:menu  K3:back"
+    else:
+        hint = "CTR:open  K2:menu  K3:back"
+    hw_, hh = _text_size(draw, hint, font_label)
+    hint_t  = _trunc(draw, hint, font_label, W - 4)
+    draw.text(((W - hw_) // 2, H - hh - 2), hint_t,
+              font=font_label, fill=HINT)
+
+    hw.show(img)
