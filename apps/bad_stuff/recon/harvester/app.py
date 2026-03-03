@@ -25,6 +25,7 @@ import threading
 import subprocess
 import datetime
 from PIL import Image, ImageDraw
+from core.background import bgm
 
 log = logging.getLogger("harvester")
 
@@ -58,6 +59,10 @@ BASE_DIR = os.path.dirname(
 OUTPUT_DIR      = os.path.join(BASE_DIR, "menu_fs", "02_files", "handshakes")
 LOG_FILE        = os.path.join(OUTPUT_DIR, "harvest_log.jsonl")
 PREFERRED_IFACE = "wlan1"
+
+# Resources this app uses (for conflict detection)
+RESOURCES = ["wlan1_monitor"]
+APP_NAME  = "Harvester"
 
 # Check interval — how often to scan .cap for new handshakes
 CHECK_INTERVAL  = 60   # seconds
@@ -256,6 +261,7 @@ class HarvesterApp:
         self.hw = hw
         self.font_big, self.font_small, self.font_label = fonts
 
+        bgm.unregister(APP_NAME)
         self.state  = STATE_IDLE
         self._dirty = True
 
@@ -287,6 +293,7 @@ class HarvesterApp:
         self._last_redraw = 0
 
     def on_enter(self):
+        bgm.unregister(APP_NAME)
         self.state  = STATE_IDLE
         self._dirty = True
         threading.Thread(target=self._check_adapter, daemon=True).start()
@@ -334,6 +341,9 @@ class HarvesterApp:
         self._checker_stop.clear()
         self.state  = STATE_RUNNING
         self._dirty = True
+
+        # Register as background task
+        bgm.register(APP_NAME, RESOURCES, self._stop_session)
 
         def _capture():
             """Run airodump-ng passively — no targeting, all channels."""
@@ -472,6 +482,7 @@ class HarvesterApp:
             shutil.rmtree(self._cap_tmpdir, ignore_errors=True)
             self._cap_tmpdir = None
 
+        bgm.unregister(APP_NAME)
         self.state  = STATE_IDLE
         self._dirty = True
 
@@ -482,13 +493,24 @@ class HarvesterApp:
             if event == "KEY3":
                 return "exit"
             elif event == "CENTER" and self._adapter_ok:
-                self._start_session()
+                # Check for resource conflicts before starting
+                conflicts = bgm.conflicts_for(RESOURCES)
+                if conflicts:
+                    self._conflict_msg = f"Conflict: {conflicts[0]} uses wlan1"
+                    self._dirty = True
+                else:
+                    self._conflict_msg = ""
+                    self._start_session()
             elif event == "KEY1" and self._log_entries:
                 self.state  = STATE_STATS
                 self._dirty = True
 
         elif self.state == STATE_RUNNING:
             if event == "KEY3":
+                # Go to background instead of stopping
+                return "background"
+            elif event == "KEY1":
+                # KEY1 = stop and save
                 self._stop_session()
 
         elif self.state == STATE_STATS:
@@ -638,7 +660,7 @@ class HarvesterApp:
                 d.text((M, y), row, font=self.font_label, fill=GREEN)
                 y += lh
 
-        self._hint(d, W, H, "K3:stop+save")
+        self._hint(d, W, H, "K1:stop+save  K3:background")
 
     def _draw_stats(self, d, W, H):
         M  = 8

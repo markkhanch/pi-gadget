@@ -6,6 +6,7 @@ Screensaver: clock, date, Wi-Fi/Ethernet and Bluetooth icons.
 import os
 from PIL import Image, ImageDraw
 from datetime import datetime
+from core.background import bgm
 
 
 def _text_size(draw, text, font):
@@ -58,6 +59,15 @@ def draw_screensaver(hw, fonts, wifi_icons, bt_icons, status, eth_icon=None):
 
     image.paste(slot1_icon, (4, 3), slot1_icon)
     image.paste(bt_icon,   (36, 3), bt_icon)
+
+    # Background process indicator dot
+    if bgm.has_active():
+        dot_x, dot_y, dot_r = 68, 12, 5
+        draw.ellipse([(dot_x - dot_r, dot_y - dot_r),
+                      (dot_x + dot_r, dot_y + dot_r)], fill=(255, 140, 0))
+        # Pulsing inner highlight
+        draw.ellipse([(dot_x - 2, dot_y - 2),
+                      (dot_x + 2, dot_y + 2)], fill=(255, 210, 100))
 
     # --- Time and date ---
     now     = datetime.now()

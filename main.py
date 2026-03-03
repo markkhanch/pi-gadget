@@ -41,6 +41,7 @@ from ui.options_menu import (
 )
 
 from apps.loader import load_app
+from core.background import bgm
 from core.ui_keyboard import OnScreenKeyboard
 
 logging.basicConfig(level=logging.INFO)
@@ -250,6 +251,13 @@ def main():
                     if current_app is not None:
                         result = current_app.on_event(event)
                         if result == "exit":
+                            current_app.on_exit()
+                            current_app = None
+                            current_app_module = None
+                            state = STATE_LIST_VIEW
+                            list_dirty = True
+                        elif result == "background":
+                            # App keeps running in background — just go back to menu
                             current_app = None
                             current_app_module = None
                             state = STATE_LIST_VIEW
