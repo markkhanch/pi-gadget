@@ -55,20 +55,37 @@ The following components are **optional** and enable additional features:
 
 ## 📸 Photos
 
-**Main menu**  
-![Main menu](docs/images/menu-home.png)
+<p align="center">
+  <img src="docs/images/clockface.jpg" width="45%" alt="Idle clock face"/>
+  &nbsp;&nbsp;
+  <img src="docs/images/menu_home.jpg" width="45%" alt="Home menu grid"/>
+</p>
+<p align="center"><em>Idle clock face &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Home menu</em></p>
 
-**Bad Stuff sub-menu**  
-![Bad Stuff](docs/images/menu-bad-stuff.png)
+---
 
-**Wardriving session**  
-![Wardriving](docs/images/app-wardriving.png)
+<p align="center">
+  <img src="docs/images/menu_bad_stuff.jpg" width="45%" alt="Bad Stuff sub-grid with Remote UI"/>
+  &nbsp;&nbsp;
+  <img src="docs/images/app_system.jpg" width="45%" alt="CPU / RAM monitor with live graph"/>
+</p>
+<p align="center"><em>Bad Stuff grid (with Remote UI) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CPU / RAM monitor</em></p>
 
-**GPS Map**  
-![Map](docs/images/app-map.png)
+---
 
-**File browser**  
-![Files](docs/images/menu-files.png)
+<p align="center">
+  <img src="docs/images/app_wardriving.jpg" width="45%" alt="Wardriving in the field with GPS and Alfa adapter"/>
+  &nbsp;&nbsp;
+  <img src="docs/images/app_wardriving_stats.jpg" width="45%" alt="Wardriving session stats"/>
+</p>
+<p align="center"><em>Wardriving in the field &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Session stats</em></p>
+
+---
+
+<p align="center">
+  <img src="docs/images/app_handshake.jpg" width="45%" alt="WPA2 handshake capture with deauth"/>
+</p>
+<p align="center"><em>WPA2 handshake capture</em></p>
 
 ---
 
@@ -79,7 +96,9 @@ HOME
 ├── Bad Stuff               ← Hacking tools (icon grid)
 │   ├── Recon
 │   │   ├── Wardriving      — GPS Wi-Fi mapping, WiGLE CSV + GPX export
-│   │   └── Net Intel       — Network scanner + OS fingerprinting
+│   │   ├── Net Intel       — Network scanner + OS fingerprinting
+│   │   ├── Handshake       — WPA2 handshake capture + deauth
+│   │   └── Harvester       — Passive overnight handshake collector
 │   ├── Network
 │   │   └── Evil Twin       — Rogue AP + captive portal + credential logging
 │   ├── Wireless
