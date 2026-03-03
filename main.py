@@ -42,9 +42,31 @@ from ui.options_menu import (
 
 from apps.loader import load_app
 from core.background import bgm
+import signal
+import atexit
 from core.ui_keyboard import OnScreenKeyboard
 
 logging.basicConfig(level=logging.INFO)
+
+
+def _cleanup():
+    """Stop all background processes on exit."""
+    if bgm.has_active():
+        logging.info("Stopping background tasks: %s", bgm.active_tasks())
+        bgm.stop_all()
+
+
+atexit.register(_cleanup)
+
+
+def _signal_handler(sig, frame):
+    """Handle SIGTERM/SIGINT — cleanup and exit."""
+    _cleanup()
+    raise SystemExit(0)
+
+
+signal.signal(signal.SIGTERM, _signal_handler)
+signal.signal(signal.SIGINT,  _signal_handler)
 
 # ─────────────────────────── Paths ───────────────────────────
 
@@ -251,7 +273,9 @@ def main():
                     if current_app is not None:
                         result = current_app.on_event(event)
                         if result == "exit":
-                            current_app.on_exit()
+                            # on_exit is optional — not all apps implement it
+                            if hasattr(current_app, "on_exit"):
+                                current_app.on_exit()
                             current_app = None
                             current_app_module = None
                             state = STATE_LIST_VIEW
@@ -709,9 +733,10 @@ def main():
 
             time.sleep(0.05)
 
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
+        bgm.stop_all()
         hw.clear()
-        logging.info("Exit by KeyboardInterrupt")
+        logging.info("Exit — all background tasks stopped")
 
 
 if __name__ == "__main__":
