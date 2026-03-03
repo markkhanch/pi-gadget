@@ -25,7 +25,8 @@ sudo apt install -y \
   python3-numpy python3-pil \
   fonts-dejavu \
   aircrack-ng \
-  tcpdump
+  tcpdump \
+  hcxtools
 
 echo "[*] Installing network tools..."
 sudo apt install -y \
