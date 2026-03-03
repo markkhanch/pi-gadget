@@ -56,34 +56,34 @@ The following components are **optional** and enable additional features:
 ## 📸 Photos
 
 <p align="center">
-  <img src="docs/images/clockface.jpg" width="45%" alt="Idle clock face"/>
+  <img src="docs/images/clockface.jpeg" width="45%" alt="Idle clock face"/>
   &nbsp;&nbsp;
-  <img src="docs/images/menu_home.jpg" width="45%" alt="Home menu grid"/>
+  <img src="docs/images/menu_home.jpeg" width="45%" alt="Home menu grid"/>
 </p>
 <p align="center"><em>Idle clock face &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Home menu</em></p>
 
 ---
 
 <p align="center">
-  <img src="docs/images/menu_bad_stuff.jpg" width="45%" alt="Bad Stuff sub-grid with Remote UI"/>
+  <img src="docs/images/menu_bad_stuff.jpeg" width="45%" alt="Bad Stuff sub-grid with Remote UI"/>
   &nbsp;&nbsp;
-  <img src="docs/images/app_system.jpg" width="45%" alt="CPU / RAM monitor with live graph"/>
+  <img src="docs/images/app_system.jpeg" width="45%" alt="CPU / RAM monitor with live graph"/>
 </p>
 <p align="center"><em>Bad Stuff grid (with Remote UI) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CPU / RAM monitor</em></p>
 
 ---
 
 <p align="center">
-  <img src="docs/images/app_wardriving.jpg" width="45%" alt="Wardriving in the field with GPS and Alfa adapter"/>
+  <img src="docs/images/app_wardriving.jpeg" width="45%" alt="Wardriving in the field with GPS and Alfa adapter"/>
   &nbsp;&nbsp;
-  <img src="docs/images/app_wardriving_stats.jpg" width="45%" alt="Wardriving session stats"/>
+  <img src="docs/images/app_wardriving_stats.jpeg" width="45%" alt="Wardriving session stats"/>
 </p>
 <p align="center"><em>Wardriving in the field &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Session stats</em></p>
 
 ---
 
 <p align="center">
-  <img src="docs/images/app_handshake.jpg" width="45%" alt="WPA2 handshake capture with deauth"/>
+  <img src="docs/images/app_handshake.jpeg" width="45%" alt="WPA2 handshake capture with deauth"/>
 </p>
 <p align="center"><em>WPA2 handshake capture</em></p>
 
