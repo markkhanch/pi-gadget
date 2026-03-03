@@ -23,7 +23,9 @@ sudo apt install -y \
   python3 python3-pip python3-dev \
   python3-rpi.gpio python3-spidev \
   python3-numpy python3-pil \
-  fonts-dejavu
+  fonts-dejavu \
+  aircrack-ng \
+  tcpdump
 
 echo "[*] Installing network tools..."
 sudo apt install -y \

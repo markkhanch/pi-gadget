@@ -1,6 +1,1 @@
-{
-  "name": "Wardriving",
-  "module": "tools.wardriving",
-  "icon": "app_default.png",
-  "sort_priority": 20
-}
+{"name": "Wardriving", "module": "bad_stuff.recon.wardriving", "icon": "app_default.png", "sort_priority": 1}

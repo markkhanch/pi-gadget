@@ -1,6 +1,1 @@
-{
-  "name": "Device Info",
-  "module": "system.device_info",
-  "icon": "info.png",
-  "sort_priority": 40
-}
+{"name": "Device Info", "module": "system.device_info", "icon": "app_default.png", "sort_priority": 2}

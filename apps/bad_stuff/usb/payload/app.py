@@ -25,7 +25,7 @@ import time
 import threading
 from PIL import Image, ImageDraw
 
-from apps.tools.payload import ducky
+from apps.bad_stuff.usb.payload import ducky
 
 TOP_H = 26
 BOT_H = 18

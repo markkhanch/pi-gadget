@@ -36,7 +36,7 @@ def _load_template() -> str:
     # Name-based lookup in portals dir
     portals_dir = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
-        "..", "..", "..", "menu_fs", "02_files", "portals"
+        "..", "..", "..", "..", "menu_fs", "02_files", "portals"
     )
     portals_dir = os.path.realpath(portals_dir)
 

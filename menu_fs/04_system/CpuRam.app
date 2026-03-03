@@ -1,6 +1,1 @@
-{
-  "name": "CPU & RAM",
-  "icon": "cpu.png",
-  "sort_priority": 1100,
-  "module": "system.cpu_ram"
-}
+{"name": "CPU & RAM", "module": "system.cpu_ram", "icon": "app_default.png", "sort_priority": 1}

@@ -1,6 +1,1 @@
-{
-  "name": "Temp",
-  "icon": "temp.png",
-  "sort_priority": 1200,
-  "module": "system.temp"
-}
+{"name": "Temperature", "module": "system.temp", "icon": "app_default.png", "sort_priority": 4}

@@ -1,6 +1,1 @@
-{
-  "name": "MAC Changer",
-  "module": "settings.mac_changer",
-  "icon": "app_default.png",
-  "sort_priority": 40
-}
+{"name": "MAC Changer", "module": "bad_stuff.wireless.mac_changer", "icon": "app_default.png", "sort_priority": 1}

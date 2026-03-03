@@ -1,6 +1,1 @@
-{
-  "name": "Date & Time",
-  "module": "settings.datetime",
-  "icon": "app_default.png",
-  "sort_priority": 200
-}
+{"name": "Date & Time", "module": "settings.datetime", "icon": "app_default.png", "sort_priority": 3}

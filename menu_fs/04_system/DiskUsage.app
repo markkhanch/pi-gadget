@@ -1,6 +1,1 @@
-{
-  "name": "Disk",
-  "icon": "disk.png",
-  "sort_priority": 1300,
-  "module": "system.disk"
-}
+{"name": "Disk Usage", "module": "system.disk", "icon": "app_default.png", "sort_priority": 3}
