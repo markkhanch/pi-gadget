@@ -69,6 +69,7 @@ STATE_KEYBOARD     = "keyboard"
 STATE_CONSOLE      = "console"
 STATE_APP          = "app"
 STATE_INFO         = "info"
+STATE_DIMMED       = "dimmed"   # Backlight off, waiting for wake
 
 KB_MODE_RENAME     = "rename"
 KB_MODE_NEW_FOLDER = "new_folder"
@@ -83,8 +84,9 @@ def _load_config() -> dict:
         return {}
 
 
-_cfg         = _load_config()
-IDLE_TIMEOUT = float(_cfg.get("idle_timeout", 999999999.0))
+_cfg           = _load_config()
+IDLE_TIMEOUT   = float(_cfg.get("idle_timeout", 999999999.0))
+SCREEN_TIMEOUT = float(_cfg.get("screen_timeout", 999999999.0))
 
 
 def load_icon(path: str, size: int = 24) -> Image.Image:
@@ -199,8 +201,9 @@ def main():
     monitor = SystemMonitor(max_points=600, interval=1.0)
     prev_button_states = {name: hw.gpio_read(pin) for name, pin in hw.pins.items()}
 
-    last_input_time = time.time()
-    last_clock_draw = 0.0
+    last_input_time  = time.time()
+    last_clock_draw  = 0.0
+    screen_is_dimmed = False
     menu_dirty      = True
     grid_dirty      = True
     list_dirty      = True
@@ -228,6 +231,14 @@ def main():
 
             for event in events:
                 last_input_time = now
+
+                # Wake screen if backlight was off
+                if screen_is_dimmed:
+                    screen_is_dimmed = False
+                    cfg = _load_config()
+                    hw.backlight(int(cfg.get("brightness", 80)))
+                    state = STATE_SCREENSAVER
+                    continue
 
                 # ── Screensaver ───────────────────────────────
                 if state == STATE_SCREENSAVER:
@@ -615,12 +626,21 @@ def main():
                         console_scroll += 1
                         console_dirty = True
 
-            # ── Idle timeout ──────────────────────────────────
-            if state != STATE_SCREENSAVER and (now - last_input_time) > IDLE_TIMEOUT:
+            # ── Idle timeout → screensaver ────────────────────
+            if state not in (STATE_SCREENSAVER, STATE_DIMMED) and                     (now - last_input_time) > IDLE_TIMEOUT:
                 state = STATE_SCREENSAVER
 
+            # ── Screen timeout → backlight off ────────────────
+            if not screen_is_dimmed and                     (now - last_input_time) > SCREEN_TIMEOUT:
+                hw.backlight(0)
+                screen_is_dimmed = True
+                state = STATE_DIMMED
+
             # ── Draw ──────────────────────────────────────────
-            if state == STATE_SCREENSAVER:
+            if state == STATE_DIMMED:
+                pass  # Screen is off, nothing to draw
+
+            elif state == STATE_SCREENSAVER:
                 if now - last_clock_draw >= 1.0:
                     draw_screensaver(hw, fonts, wifi_icons, bt_icons, status, eth_icon)
                     last_clock_draw = now
