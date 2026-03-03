@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # scripts/evil_twin.sh
 # Evil Twin Access Point with Captive Portal.
 #
@@ -16,7 +19,7 @@ AP_IP="192.168.66.1"
 DHCP_RANGE="192.168.66.10,192.168.66.50,255.255.255.0,1h"
 
 # Persistent log in files folder
-LOG_FILE="/home/mark/pi-gadget/menu_fs/04_files/evil_twin_log.jsonl"
+LOG_FILE="$PROJECT_DIR/menu_fs/04_files/evil_twin_log.jsonl"
 
 HOSTAPD_CONF="/tmp/evil_twin_hostapd.conf"
 DNSMASQ_CONF="/tmp/evil_twin_dnsmasq.conf"

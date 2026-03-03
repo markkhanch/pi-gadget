@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # usb_gadget_setup.sh
 # Configures Raspberry Pi Zero as USB HID keyboard or mass storage.
 #
@@ -10,8 +13,8 @@
 
 GADGET_DIR="/sys/kernel/config/usb_gadget/pigadget"
 MODE="${1:-keyboard}"
-IMG="/home/mark/pi-gadget/usb_storage.img"
-FILES_DIR="/home/mark/pi-gadget/menu_fs/04_files"
+IMG="$PROJECT_DIR/usb_storage.img"
+FILES_DIR="$PROJECT_DIR/menu_fs/04_files"
 MNT="/tmp/pigadget_mnt"
 
 _unmount() {
@@ -70,7 +73,7 @@ _sync_from_img() {
     sync
     _unmount
     # Auto-import payloads
-    PAYLOAD_DST="/home/mark/pi-gadget/apps/tools/payload/payloads"
+    PAYLOAD_DST="$PROJECT_DIR/apps/tools/payload/payloads"
     mkdir -p "$PAYLOAD_DST"
     find "$FILES_DIR/payloads" -name "*.ds" -o -name "*.payload" 2>/dev/null | \
     while read f; do
