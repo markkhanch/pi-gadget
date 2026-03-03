@@ -71,16 +71,47 @@ sudo chmod 440 "$SUDOERS_FILE"
 echo "    Sudoers rule written to $SUDOERS_FILE"
 
 echo ""
+# Create systemd service for autostart
+echo "[*] Creating systemd autostart service..."
+INSTALL_DIR="$(pwd)"
+SERVICE_FILE="/etc/systemd/system/pi-gadget.service"
+sudo tee "$SERVICE_FILE" > /dev/null << SVCEOF
+[Unit]
+Description=Pi Gadget
+After=multi-user.target
+
+[Service]
+Type=simple
+User=$USER
+WorkingDirectory=$INSTALL_DIR
+ExecStart=/usr/bin/python3 $INSTALL_DIR/main.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+sudo systemctl daemon-reload
+sudo systemctl enable pi-gadget.service
+echo "    Autostart enabled (pi-gadget.service)"
+echo "    To disable: sudo systemctl disable pi-gadget"
+echo ""
+
 echo "[✓] Installation complete."
 echo ""
-echo "  IMPORTANT: Reboot the Pi for USB OTG to take effect:"
+echo "  IMPORTANT: Reboot the Pi for USB OTG and autostart to take effect:"
 echo "    sudo reboot"
 echo ""
 echo "  After reboot, connect Pi's USB DATA port (not PWR) to a computer."
 echo "  Then use Settings → USB Mode to switch between keyboard / storage."
 echo ""
-echo "  To run the gadget:"
-echo "    python3 main.py"
+echo "  To run manually (development):"
+echo "    sudo systemctl stop pi-gadget && python3 main.py"
+echo ""
+echo "  To disable autostart:"
+echo "    sudo systemctl disable pi-gadget"
 
 # Allow gpsd without sudo password
 echo "$USER ALL=(ALL) NOPASSWD: /usr/sbin/gpsd" | sudo tee /etc/sudoers.d/pi-gadget-gpsd > /dev/null
