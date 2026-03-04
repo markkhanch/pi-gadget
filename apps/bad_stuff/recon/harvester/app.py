@@ -9,8 +9,8 @@ Saves to: menu_fs/02_files/handshakes/harvest_YYYYMMDD_HHMMSS.cap
 Log file: menu_fs/02_files/handshakes/harvest_log.jsonl
 
 Controls:
-  IDLE:    CTR:start  K3:exit
-  RUNNING: K3:stop+save
+  IDLE:    CTR:start  K1:history  K3:exit
+  RUNNING: K1:stop+save  K3:background
   STATS:   K3:back
 """
 
@@ -65,7 +65,7 @@ RESOURCES = ["wlan1_monitor"]
 APP_NAME  = "Harvester"
 
 # Check interval — how often to scan .cap for new handshakes
-CHECK_INTERVAL  = 60   # seconds
+CHECK_INTERVAL = 60   # seconds
 
 STATE_IDLE    = "idle"
 STATE_RUNNING = "running"
@@ -261,13 +261,12 @@ class HarvesterApp:
         self.hw = hw
         self.font_big, self.font_small, self.font_label = fonts
 
-        bgm.unregister(APP_NAME)
         self.state  = STATE_IDLE
         self._dirty = True
 
         # Adapter
-        self._iface      = None
-        self._adapter_ok = False
+        self._iface       = None
+        self._adapter_ok  = False
         self._adapter_msg = "Checking..."
 
         # Session
@@ -290,10 +289,12 @@ class HarvesterApp:
         # History from log
         self._log_entries = []
 
+        # Conflict warning message
+        self._conflict_msg = ""
+
         self._last_redraw = 0
 
     def on_enter(self):
-        bgm.unregister(APP_NAME)
         self.state  = STATE_IDLE
         self._dirty = True
         threading.Thread(target=self._check_adapter, daemon=True).start()
@@ -332,24 +333,24 @@ class HarvesterApp:
         self._cap_tmpdir = tempfile.mkdtemp()
         cap_base = os.path.join(self._cap_tmpdir, f"harvest_{ts}")
 
-        self._start_time      = time.time()
-        self._networks_seen   = 0
-        self._handshakes_new  = []
-        self._last_catch      = ""
-        self._last_check_ts   = ""
-        self._running         = True
+        self._start_time     = time.time()
+        self._networks_seen  = 0
+        self._handshakes_new = []
+        self._last_catch     = ""
+        self._last_check_ts  = ""
+        self._running        = True
         self._checker_stop.clear()
         self.state  = STATE_RUNNING
         self._dirty = True
 
-        # Register as background task
-        bgm.register(APP_NAME, RESOURCES, self._stop_session)
+        # Register as background task — pass self so loader can re-attach
+        bgm.register(APP_NAME, RESOURCES, self._stop_session,
+                     instance=self, module="bad_stuff.recon.harvester")
 
         def _capture():
             """Run airodump-ng passively — no targeting, all channels."""
             try:
                 # Tell NetworkManager to stop managing wlan1 (non-destructive)
-                # This prevents NM from hopping channels without killing Wi-Fi
                 subprocess.run(
                     ["sudo", "nmcli", "device", "set", self._iface, "managed", "no"],
                     capture_output=True, timeout=10
@@ -358,7 +359,7 @@ class HarvesterApp:
                 self._cap_proc = subprocess.Popen(
                     [
                         "sudo", "airodump-ng",
-                        "--band", "abg",        # 2.4GHz + 5GHz
+                        "--band", "abg",
                         "--output-format", "pcap,csv",
                         "--write", cap_base,
                         "--write-interval", "10",
@@ -378,10 +379,8 @@ class HarvesterApp:
             """
             Periodically check captured data for new handshakes
             and update network count from CSV.
-            Deduplicates by hash string — correctly handles multiple
-            BSSIDs and repeated checks.
+            Deduplicates by hash string to handle multiple BSSIDs.
             """
-            # Deduplicate by full hash string (unique per client+AP pair)
             known_hashes: set[str] = set()
 
             while not self._checker_stop.wait(CHECK_INTERVAL):
@@ -431,14 +430,12 @@ class HarvesterApp:
         threading.Thread(target=_capture, daemon=True).start()
         threading.Thread(target=_checker, daemon=True).start()
 
-        # Store cap_base for stop
         self._cap_base = cap_base
 
     def _stop_session(self):
         self._running = False
         self._checker_stop.set()
 
-        # Stop airodump
         if self._cap_proc:
             _kill_proc(self._cap_proc, "airodump-ng harvester")
             self._cap_proc = None
@@ -446,9 +443,9 @@ class HarvesterApp:
         # Save .cap file to output dir
         cap_file = self._cap_base + "-01.cap" if hasattr(self, "_cap_base") else ""
         if cap_file and os.path.exists(cap_file):
-            ts        = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            out_name  = f"harvest_{ts}.cap"
-            out_path  = os.path.join(OUTPUT_DIR, out_name)
+            ts       = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            out_name = f"harvest_{ts}.cap"
+            out_path = os.path.join(OUTPUT_DIR, out_name)
             try:
                 shutil.copy2(cap_file, out_path)
                 log.info("Saved harvest: %s", out_path)
@@ -466,7 +463,7 @@ class HarvesterApp:
             _append_log(entry)
             self._log_entries = _load_log()
 
-        # Return wlan1 back to NetworkManager management
+        # Return wlan1 back to NetworkManager
         try:
             iface = self._iface or PREFERRED_IFACE
             subprocess.run(
@@ -477,7 +474,6 @@ class HarvesterApp:
         except Exception as e:
             log.warning("Failed to restore NM management: %s", e)
 
-        # Cleanup temp
         if self._cap_tmpdir:
             shutil.rmtree(self._cap_tmpdir, ignore_errors=True)
             self._cap_tmpdir = None
@@ -493,7 +489,6 @@ class HarvesterApp:
             if event == "KEY3":
                 return "exit"
             elif event == "CENTER" and self._adapter_ok:
-                # Check for resource conflicts before starting
                 conflicts = bgm.conflicts_for(RESOURCES)
                 if conflicts:
                     self._conflict_msg = f"Conflict: {conflicts[0]} uses wlan1"
@@ -507,10 +502,10 @@ class HarvesterApp:
 
         elif self.state == STATE_RUNNING:
             if event == "KEY3":
-                # Go to background instead of stopping
+                # Send to background — keep capturing, exit UI
                 return "background"
             elif event == "KEY1":
-                # KEY1 = stop and save
+                # Stop and save
                 self._stop_session()
 
         elif self.state == STATE_STATS:
@@ -604,14 +599,20 @@ class HarvesterApp:
             d.text(((W - sw) // 2, H - BOT_H - sh - 24),
                    summary, font=self.font_label, fill=CYAN)
 
+        # Conflict warning
+        if self._conflict_msg:
+            cw, ch = _ts(d, self._conflict_msg, self.font_label)
+            d.text(((W - cw) // 2, H - BOT_H - ch - 44),
+                   self._conflict_msg, font=self.font_label, fill=RED)
+
         hint = "CTR:start  K1:history  K3:exit" if self._log_entries \
                else "CTR:start  K3:exit"
         self._hint(d, W, H, hint)
 
     def _draw_running(self, d, W, H):
-        M   = 8
-        y   = TOP_H + 6
-        lh  = self.font_label.size + 5
+        M  = 8
+        y  = TOP_H + 6
+        lh = self.font_label.size + 5
 
         # Duration
         elapsed = int(time.time() - self._start_time)
@@ -624,37 +625,37 @@ class HarvesterApp:
         d.line([(M, y), (W - M, y)], fill=SEP, width=1)
         y += 6
 
-        # Networks seen
-        d.text((M, y), f"Networks: {self._networks_seen}",
+        with self._lock:
+            networks = self._networks_seen
+            hs_list  = list(self._handshakes_new)
+            last_chk = self._last_check_ts
+            last_cat = self._last_catch
+
+        d.text((M, y), f"Networks: {networks}",
                font=self.font_label, fill=DIM)
         y += lh
 
-        # Handshakes caught
-        hs_count = len(self._handshakes_new)
+        hs_count = len(hs_list)
         hs_col   = GREEN if hs_count > 0 else DIM
         d.text((M, y), f"Handshakes: {hs_count}",
                font=self.font_label, fill=hs_col)
         y += lh
 
-        # Last caught
-        if self._last_catch:
-            last = _trunc(d, f"Last: {self._last_catch}",
-                          self.font_label, W - M * 2)
+        if last_cat:
+            last = _trunc(d, f"Last: {last_cat}", self.font_label, W - M * 2)
             d.text((M, y), last, font=self.font_label, fill=GREEN)
             y += lh
 
-        # Last check time
-        if self._last_check_ts:
-            check_str = f"Checked: {self._last_check_ts}"
-            d.text((M, y), check_str, font=self.font_label, fill=DIM)
+        if last_chk:
+            d.text((M, y), f"Checked: {last_chk}",
+                   font=self.font_label, fill=DIM)
             y += lh
 
-        # Recent catches list (last 2)
-        if self._handshakes_new:
+        if hs_list:
             y += 2
             d.line([(M, y), (W - M, y)], fill=SEP, width=1)
             y += 4
-            for entry in self._handshakes_new[-2:]:
+            for entry in hs_list[-2:]:
                 row = _trunc(d, f"✓ {entry['ssid']}", self.font_label,
                              W - M * 2)
                 d.text((M, y), row, font=self.font_label, fill=GREEN)
@@ -674,12 +675,11 @@ class HarvesterApp:
             self._hint(d, W, H, "K3:back")
             return
 
-        # Summary
-        total_sessions  = len(self._log_entries)
-        total_hs        = sum(
+        total_sessions = len(self._log_entries)
+        total_hs       = sum(
             len(e.get("handshakes", [])) for e in self._log_entries
         )
-        total_networks  = sum(
+        total_networks = sum(
             e.get("networks", 0) for e in self._log_entries
         )
 
@@ -696,7 +696,6 @@ class HarvesterApp:
         d.line([(M, y), (W - M, y)], fill=SEP, width=1)
         y += 6
 
-        # List last caught SSIDs (most recent session)
         last = self._log_entries[-1]
         for hs in last.get("handshakes", [])[:4]:
             row = _trunc(d, f"✓ {hs['ssid']}", self.font_label, W - M * 2)

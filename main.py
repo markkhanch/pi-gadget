@@ -93,6 +93,7 @@ STATE_CONSOLE      = "console"
 STATE_APP          = "app"
 STATE_INFO         = "info"
 STATE_DIMMED       = "dimmed"   # Backlight off, waiting for wake
+STATE_BG_TASKS     = "bg_tasks"  # Background tasks manager screen
 
 KB_MODE_RENAME     = "rename"
 KB_MODE_NEW_FOLDER = "new_folder"
@@ -153,6 +154,91 @@ def _enter_folder(entry: dict, nav_stack: list,
         return STATE_LIST_VIEW, path, name, entries, 0, 0
 
 
+def _draw_bg_tasks(hw, fonts, bgm, selected_index: int):
+    """Draw background tasks management screen."""
+    from PIL import Image, ImageDraw
+    import time as _time
+
+    font_big, font_small, font_label = fonts
+    W, H = hw.W, hw.H
+    img  = Image.new("RGB", (W, H), (4, 8, 16))
+    d    = ImageDraw.Draw(img)
+
+    TOP_H  = 26
+    BOT_H  = 18
+    HDR_BG = (8, 14, 28)
+    SEP    = (25, 45, 75)
+    WHITE  = (220, 235, 255)
+    DIM    = (70, 100, 140)
+    HINT   = (50, 75, 110)
+    GREEN  = (50, 220, 120)
+    RED    = (255, 70, 70)
+    ORANGE = (255, 140, 30)
+
+    def ts(text, font):
+        b = d.textbbox((0, 0), text, font=font)
+        return b[2] - b[0], b[3] - b[1]
+
+    # Header
+    d.rectangle([(0, 0), (W, TOP_H)], fill=HDR_BG)
+    d.rectangle([(0, 0), (3, TOP_H)], fill=ORANGE)
+    title = "Background Tasks"
+    tw, th = ts(title, font_label)
+    d.text(((W - tw) // 2, (TOP_H - th) // 2),
+           title, font=font_label, fill=ORANGE)
+    d.line([(0, TOP_H), (W, TOP_H)], fill=SEP, width=1)
+
+    tasks = bgm.active_tasks()
+
+    if not tasks:
+        msg = "No background tasks"
+        mw, mh = ts(msg, font_label)
+        d.text(((W - mw) // 2, TOP_H + 40), msg,
+               font=font_label, fill=DIM)
+    else:
+        y = TOP_H + 8
+        lh = font_label.size + 8
+
+        for i, name in enumerate(tasks):
+            info    = bgm.get_task_info(name)
+            uptime  = bgm.uptime(name)
+            h, m, s = uptime // 3600, (uptime % 3600) // 60, uptime % 60
+            up_str  = f"{h:02d}:{m:02d}:{s:02d}"
+
+            is_sel  = (i == selected_index)
+            row_col = GREEN if is_sel else WHITE
+            dim_col = (80, 180, 80) if is_sel else DIM
+
+            # Selection indicator
+            if is_sel:
+                d.rectangle([(0, y - 2), (W, y + lh - 2)],
+                             fill=(10, 30, 20))
+                d.rectangle([(0, y - 2), (3, y + lh - 2)],
+                             fill=GREEN)
+
+            d.text((8, y), f"● {name}", font=font_label, fill=row_col)
+            up_w, _ = ts(up_str, font_label)
+            d.text((W - up_w - 6, y), up_str,
+                   font=font_label, fill=dim_col)
+            y += lh
+
+            if is_sel:
+                # Show resources used
+                res = ", ".join(info.get("resources", []))
+                rw, _ = ts(res, font_label)
+                d.text((8, y), res, font=font_label, fill=(100, 100, 140))
+                y += lh
+
+    # Bottom hints
+    d.line([(0, H - BOT_H), (W, H - BOT_H)], fill=SEP, width=1)
+    hint = "CTR:enter  K1:stop  K3:back"
+    hw2, hh2 = ts(hint, font_label)
+    d.text(((W - hw2) // 2, H - hh2 - 2),
+           hint, font=font_label, fill=HINT)
+
+    hw.show(img)
+
+
 def main():
     hw = HWDisplay()
 
@@ -210,6 +296,9 @@ def main():
     # Clipboard
     clipboard = None
 
+    # Background tasks screen
+    selected_bg_index = 0
+
     # Info screen
     info_lines  = []
     info_scroll = 0
@@ -265,8 +354,11 @@ def main():
 
                 # ── Screensaver ───────────────────────────────
                 if state == STATE_SCREENSAVER:
-                    state = STATE_MAIN_MENU
-                    menu_dirty = True
+                    if event == "KEY1" and bgm.has_active():
+                        state = STATE_BG_TASKS
+                    else:
+                        state = STATE_MAIN_MENU
+                        menu_dirty = True
 
                 # ── App ───────────────────────────────────────
                 elif state == STATE_APP:
@@ -593,6 +685,33 @@ def main():
                                 state = STATE_LIST_VIEW
                                 list_dirty = True
 
+                # ── Background tasks screen ──────────────────
+                elif state == STATE_BG_TASKS:
+                    tasks = bgm.active_tasks()
+                    if event == "KEY3":
+                        state = STATE_SCREENSAVER
+                    elif event in ("UP", "DOWN") and tasks:
+                        if event == "UP" and selected_bg_index > 0:
+                            selected_bg_index -= 1
+                        elif event == "DOWN" and selected_bg_index < len(tasks) - 1:
+                            selected_bg_index += 1
+                    elif event == "CENTER" and tasks:
+                        # Re-enter the selected background app
+                        name = tasks[selected_bg_index]
+                        instance = bgm.get_instance_by_module(
+                            bgm.get_task_info(name).get("module", "")
+                        )[1]
+                        if instance is not None:
+                            current_app = instance
+                            state = STATE_APP
+                    elif event == "KEY1" and tasks:
+                        # Stop selected background task
+                        name = tasks[selected_bg_index]
+                        bgm.stop(name)
+                        selected_bg_index = 0
+                        if not bgm.has_active():
+                            state = STATE_SCREENSAVER
+
                 # ── Info screen ───────────────────────────────
                 elif state == STATE_INFO:
                     if event == "KEY3":
@@ -722,6 +841,9 @@ def main():
                 if console_dirty:
                     draw_console(hw, font_label, console_lines, console_scroll)
                     console_dirty = False
+
+            elif state == STATE_BG_TASKS:
+                _draw_bg_tasks(hw, fonts, bgm, selected_bg_index)
 
             elif state == STATE_INFO:
                 if info_dirty:
