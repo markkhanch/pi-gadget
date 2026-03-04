@@ -49,23 +49,32 @@ def _get_cpu_temp() -> float:
         return 0.0
 
 
+_cpu_cache: dict = {"pct": 0.0, "ts": 0.0}
+_CPU_SAMPLE_INTERVAL = 10.0
+
+
 def _get_cpu_pct() -> float:
-    """Get CPU usage % (1s sample)."""
+    """Get CPU usage % from /proc/stat — cached every 10s."""
+    import time
+    now = time.time()
+    if now - _cpu_cache["ts"] < _CPU_SAMPLE_INTERVAL:
+        return _cpu_cache["pct"]
     try:
-        r = subprocess.run(
-            ["top", "-bn1"],
-            capture_output=True, text=True, timeout=3
-        )
-        for line in r.stdout.splitlines():
-            if "Cpu" in line or "cpu" in line:
-                # Parse idle % and subtract from 100
-                import re
-                m = re.search(r"([\d.]+)\s*id", line)
-                if m:
-                    return 100.0 - float(m.group(1))
+        with open("/proc/stat") as f:
+            line = f.readline()
+        parts = list(map(int, line.split()[1:]))
+        idle  = parts[3]
+        total = sum(parts)
+        prev  = _cpu_cache.get("_prev", (total, idle))
+        dt    = total - prev[0]
+        di    = idle  - prev[1]
+        pct   = (1.0 - di / dt) * 100.0 if dt > 0 else 0.0
+        _cpu_cache["_prev"] = (total, idle)
+        _cpu_cache["pct"]   = pct
+        _cpu_cache["ts"]    = now
+        return pct
     except Exception:
-        pass
-    return 0.0
+        return 0.0
 
 
 def _get_disk_free_pct() -> float:
