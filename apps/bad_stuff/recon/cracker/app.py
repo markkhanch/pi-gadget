@@ -87,7 +87,7 @@ def _list_caps() -> list:
     os.makedirs(HANDSHAKES_DIR, exist_ok=True)
     files = [
         f for f in os.listdir(HANDSHAKES_DIR)
-        if f.endswith(".cap")
+        if f.endswith(".cap") or f.endswith(".pcapng")
     ]
     files.sort(reverse=True)
     return files
