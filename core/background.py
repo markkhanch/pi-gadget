@@ -2,14 +2,15 @@
 core/background.py
 Global registry of background tasks.
 
-Apps register when starting a long-running process
-and unregister when done.
+Stores running app instances so the menu can re-attach
+to a running app instead of creating a new one.
 
 Usage in an app:
     from core.background import bgm
-    bgm.register("Harvester", ["wlan1_monitor"], self._stop_session)
+    bgm.register("Harvester", ["wlan1_monitor"], self._stop_session,
+                 instance=self, module="bad_stuff.recon.harvester")
     bgm.unregister("Harvester")
-    return "background"  # instead of "exit" to keep running
+    return "background"
 """
 
 import time
@@ -22,16 +23,17 @@ RESOURCE_LABELS = {
 
 
 class BackgroundManager:
-    """Singleton registry of active background tasks."""
-
     def __init__(self):
         self._tasks: dict = {}
 
-    def register(self, name: str, resources: list, stop_fn):
+    def register(self, name: str, resources: list, stop_fn,
+                 instance=None, module: str = ""):
         self._tasks[name] = {
             "resources":  resources,
             "stop_fn":    stop_fn,
             "started_at": time.time(),
+            "instance":   instance,
+            "module":     module,
         }
 
     def unregister(self, name: str):
@@ -49,6 +51,15 @@ class BackgroundManager:
             name for name, info in self._tasks.items()
             if wanted & set(info["resources"])
         ]
+
+    def get_instance_by_module(self, module: str):
+        for name, info in self._tasks.items():
+            if info.get("module") == module:
+                return name, info["instance"]
+        return None, None
+
+    def get_task_info(self, name: str) -> dict:
+        return dict(self._tasks.get(name, {}))
 
     def stop(self, name: str):
         task = self._tasks.get(name)
