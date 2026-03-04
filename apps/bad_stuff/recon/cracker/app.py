@@ -225,16 +225,20 @@ class CrackerApp:
                             self._result_color  = GREEN
                             self._save_result(pwd)
 
-                    self._status_line = _trunc(
-                        None, line, self.font_label, 200
-                    ) if len(line) > 40 else line
+                    # Truncate by chars — no draw object available in thread
+                    self._status_line = line[:45] + "…" if len(line) > 45 else line
                     self._dirty = True
 
-                self._proc.wait()
+                rc = self._proc.wait()
 
                 if not self._result:
-                    self._result       = "Not found in wordlist"
-                    self._result_color = YELLOW
+                    if rc == 1:
+                        # aircrack-ng exits 1 when no handshake found in cap
+                        self._result       = "No handshake in CAP file"
+                        self._result_color = RED
+                    else:
+                        self._result       = "Not found in wordlist"
+                        self._result_color = YELLOW
 
             except Exception as e:
                 log.error("aircrack-ng error: %s", e)
@@ -253,17 +257,18 @@ class CrackerApp:
     def _kill_proc(self):
         with self._proc_lock:
             proc = self._proc
-        if proc:
-            try:
-                proc.terminate()
-                proc.wait(timeout=3)
-            except Exception:
-                try:
-                    proc.kill()
-                except Exception:
-                    pass
-        with self._proc_lock:
             self._proc = None
+        if proc is None:
+            return
+        try:
+            proc.terminate()
+            proc.wait(timeout=3)
+        except Exception:
+            try:
+                proc.kill()
+                proc.wait(timeout=2)
+            except Exception:
+                pass
 
     def _save_result(self, password: str):
         """Save cracked password to cracked/ dir."""
