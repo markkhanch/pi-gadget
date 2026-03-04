@@ -4,6 +4,8 @@ Screensaver: clock, date, Wi-Fi/Ethernet and Bluetooth icons.
 """
 
 import os
+import shutil
+import subprocess
 from PIL import Image, ImageDraw
 from datetime import datetime
 from core.background import bgm
@@ -12,6 +14,88 @@ from core.background import bgm
 def _text_size(draw, text, font):
     bbox = draw.textbbox((0, 0), text, font=font)
     return bbox[2] - bbox[0], bbox[3] - bbox[1]
+
+
+WARN_CPU_PATH  = os.path.join(os.path.dirname(__file__), "..", "assets", "icons", "warn_cpu.png")
+WARN_DISK_PATH = os.path.join(os.path.dirname(__file__), "..", "assets", "icons", "warn_disk.png")
+WARN_TEMP_PATH = os.path.join(os.path.dirname(__file__), "..", "assets", "icons", "warn_temp.png")
+
+# Thresholds for warnings
+WARN_TEMP_C    = 70.0   # Celsius
+WARN_DISK_PCT  = 10     # % free remaining
+WARN_CPU_PCT   = 85     # % CPU usage sustained
+
+# Cache warning icons (loaded once)
+_warn_icons: dict = {}
+
+
+def _load_warn_icon(path: str, size: int = 22) -> object:
+    """Load and cache a warning icon."""
+    if path not in _warn_icons:
+        try:
+            img = Image.open(os.path.abspath(path)).convert("RGBA")
+            _warn_icons[path] = img.resize((size, size), Image.LANCZOS)
+        except Exception:
+            _warn_icons[path] = None
+    return _warn_icons[path]
+
+
+def _get_cpu_temp() -> float:
+    """Read CPU temperature from thermal zone."""
+    try:
+        with open("/sys/class/thermal/thermal_zone0/temp") as f:
+            return int(f.read().strip()) / 1000.0
+    except Exception:
+        return 0.0
+
+
+def _get_cpu_pct() -> float:
+    """Get CPU usage % (1s sample)."""
+    try:
+        r = subprocess.run(
+            ["top", "-bn1"],
+            capture_output=True, text=True, timeout=3
+        )
+        for line in r.stdout.splitlines():
+            if "Cpu" in line or "cpu" in line:
+                # Parse idle % and subtract from 100
+                import re
+                m = re.search(r"([\d.]+)\s*id", line)
+                if m:
+                    return 100.0 - float(m.group(1))
+    except Exception:
+        pass
+    return 0.0
+
+
+def _get_disk_free_pct() -> float:
+    """Get free disk space % for root partition."""
+    try:
+        total, used, free = shutil.disk_usage("/")
+        return (free / total) * 100
+    except Exception:
+        return 100.0
+
+
+def _get_active_warnings() -> list:
+    """
+    Return list of (icon_path, label) for active warnings.
+    Checks temp, disk, CPU.
+    """
+    warnings = []
+    temp = _get_cpu_temp()
+    if temp >= WARN_TEMP_C:
+        warnings.append((WARN_TEMP_PATH, f"{temp:.0f}°C"))
+
+    disk_free = _get_disk_free_pct()
+    if disk_free <= WARN_DISK_PCT:
+        warnings.append((WARN_DISK_PATH, f"{disk_free:.0f}%"))
+
+    cpu = _get_cpu_pct()
+    if cpu >= WARN_CPU_PCT:
+        warnings.append((WARN_CPU_PATH, f"{cpu:.0f}%"))
+
+    return warnings
 
 
 def _get_clock_fmt() -> str:
@@ -60,14 +144,23 @@ def draw_screensaver(hw, fonts, wifi_icons, bt_icons, status, eth_icon=None):
     image.paste(slot1_icon, (4, 3), slot1_icon)
     image.paste(bt_icon,   (36, 3), bt_icon)
 
-    # Background process indicator dot
+    # Background process indicator dot (left side)
     if bgm.has_active():
         dot_x, dot_y, dot_r = 68, 12, 5
         draw.ellipse([(dot_x - dot_r, dot_y - dot_r),
                       (dot_x + dot_r, dot_y + dot_r)], fill=(255, 140, 0))
-        # Pulsing inner highlight
         draw.ellipse([(dot_x - 2, dot_y - 2),
                       (dot_x + 2, dot_y + 2)], fill=(255, 210, 100))
+
+    # Warning icons (right side of status bar)
+    warnings = _get_active_warnings()
+    wx = width - 4
+    for (icon_path, _label) in reversed(warnings):
+        icon = _load_warn_icon(icon_path, size=22)
+        if icon:
+            wx -= 22
+            image.paste(icon, (wx, 3), icon)
+            wx -= 2
 
     # --- Time and date ---
     now     = datetime.now()
