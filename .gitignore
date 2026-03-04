@@ -32,3 +32,5 @@ usb_storage.img
 menu_fs/02_files/handshakes/
 menu_fs/02_files/evil_twin_log.jsonl
 menu_fs/02_files/portals/
+menu_fs/02_files/wordlists/
+menu_fs/02_files/cracked/
