@@ -3,11 +3,7 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Captured data — personal, do not commit
-menu_fs/02_files/handshakes/
-menu_fs/02_files/wordlists/
-menu_fs/02_files/cracked/
-menu_fs/02_files/wardriving/
+# Captured data — managed by per-folder .gitignore
 menu_fs/02_files/evil_twin_log.jsonl
 
 # Map tile cache
