@@ -15,3 +15,7 @@ menu_fs/04_files/
 # OS
 .DS_Store
 Thumbs.db
+
+# Large/personal files
+usb_storage.img
+config.json
