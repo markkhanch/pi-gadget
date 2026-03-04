@@ -153,13 +153,15 @@ def draw_screensaver(hw, fonts, wifi_icons, bt_icons, status, eth_icon=None):
     image.paste(slot1_icon, (4, 3), slot1_icon)
     image.paste(bt_icon,   (36, 3), bt_icon)
 
-    # Background process indicator dot (left side)
+    # Background process indicator icon (left side)
     if bgm.has_active():
-        dot_x, dot_y, dot_r = 68, 12, 5
-        draw.ellipse([(dot_x - dot_r, dot_y - dot_r),
-                      (dot_x + dot_r, dot_y + dot_r)], fill=(255, 140, 0))
-        draw.ellipse([(dot_x - 2, dot_y - 2),
-                      (dot_x + 2, dot_y + 2)], fill=(255, 210, 100))
+        bg_icon = _load_warn_icon(
+            os.path.join(os.path.dirname(__file__), "..",
+                         "assets", "icons", "services_running.png"),
+            size=22
+        )
+        if bg_icon:
+            image.paste(bg_icon, (64, 3), bg_icon)
 
     # Warning icons (right side of status bar)
     warnings = _get_active_warnings()
