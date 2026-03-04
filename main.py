@@ -342,6 +342,7 @@ def main():
                         pass
                 for event in events:
                     screen_is_dimmed = False
+                    last_input_time  = time.time()  # Reset timer on wake
                     cfg = _load_config()
                     hw.backlight(int(cfg.get("brightness", 80)))
                     state = STATE_SCREENSAVER
