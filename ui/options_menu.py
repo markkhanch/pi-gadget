@@ -5,6 +5,7 @@ Options adapt based on the selected entry type and clipboard state.
 """
 
 from PIL import Image, ImageDraw
+from ui.helpers import text_size as _text_size
 
 BG      = (10,  10,  20)
 HDR_BG  = (20,  20,  40)
@@ -49,11 +50,6 @@ def build_options(entry_type: str | None, has_clipboard: bool) -> list:
         opts.append(OPT_PASTE)
 
     return opts
-
-
-def _text_size(draw, text, font):
-    b = draw.textbbox((0, 0), text, font=font)
-    return b[2] - b[0], b[3] - b[1]
 
 
 # Option colors

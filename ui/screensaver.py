@@ -9,11 +9,7 @@ import subprocess
 from PIL import Image, ImageDraw
 from datetime import datetime
 from core.background import bgm
-
-
-def _text_size(draw, text, font):
-    bbox = draw.textbbox((0, 0), text, font=font)
-    return bbox[2] - bbox[0], bbox[3] - bbox[1]
+from ui.helpers import text_size as _text_size
 
 
 WARN_CPU_PATH  = os.path.join(os.path.dirname(__file__), "..", "assets", "icons", "warn_cpu.png")

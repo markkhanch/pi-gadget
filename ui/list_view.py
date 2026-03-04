@@ -4,6 +4,7 @@ Updated to show file size/type alongside name.
 """
 
 from PIL import Image, ImageDraw
+from ui.helpers import text_size as _text_size, trunc as _trunc
 
 BG     = (4,   8,   16)
 HDR_BG = (8,   14,  28)
@@ -38,20 +39,6 @@ ROW_H   = 30
 ICON_S  = 20
 TOP_H   = 26
 BOT_H   = 18
-
-
-def _text_size(draw, text, font):
-    b = draw.textbbox((0, 0), text, font=font)
-    return b[2] - b[0], b[3] - b[1]
-
-
-def _trunc(draw, text, font, max_w):
-    while text:
-        w, _ = _text_size(draw, text, font)
-        if w <= max_w:
-            return text
-        text = text[:-2] + "…"
-    return ""
 
 
 def draw_list_view(hw, fonts, entries, selected_index, scroll,

@@ -8,6 +8,7 @@ import json
 import shutil
 import logging
 import subprocess
+import datetime
 
 FOLDER_ICON_NAME = "folder.png"
 
@@ -264,7 +265,6 @@ def get_entry_info(entry: dict) -> list:
             pass
 
     try:
-        import datetime
         mtime = os.path.getmtime(path)
         info.append(("Modified", datetime.datetime.fromtimestamp(mtime)
                      .strftime("%Y-%m-%d %H:%M")))

@@ -5,11 +5,7 @@ Reused for sub-grid views (e.g. Hacking) via optional title parameter.
 """
 
 from PIL import Image, ImageDraw
-
-
-def _text_size(draw, text, font):
-    bbox = draw.textbbox((0, 0), text, font=font)
-    return bbox[2] - bbox[0], bbox[3] - bbox[1]
+from ui.helpers import text_size as _text_size
 
 
 def draw_main_menu(hw, fonts, entries, selected_index, title: str = "HOME"):
