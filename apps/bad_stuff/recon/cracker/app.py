@@ -202,6 +202,9 @@ class CrackerApp:
 
                 # Parse live output
                 for line in self._proc.stdout:
+                    # Strip ANSI escape sequences from aircrack-ng output
+                    line = re.sub(r"\[[0-9;]*[A-Za-z]", "", line)
+                    line = re.sub(r"\[[0-9]*[A-Z]",     "", line)
                     line = line.strip()
                     if not line:
                         continue

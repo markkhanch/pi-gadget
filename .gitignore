@@ -1,36 +1,21 @@
-# Python
+# Python cache
 __pycache__/
-*.py[cod]
+*.pyc
 *.pyo
-*.pyd
 
-# Virtualenv
-.venv/
-venv/
-
-# OS / editor
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
-# Logs
-*.log
-config.json
-config.json
-config.json
-usb_storage.img
-# Sensitive data
-**/.meta.json
-menu_fs/04_files/evil_twin_log.jsonl
-menu_fs/04_files/portals/
-menu_fs/04_files/wardriving/
-menu_fs/04_files/map_cache/
-usb_storage.img
-
-# Captured data — do not commit
+# Captured data — personal, do not commit
 menu_fs/02_files/handshakes/
-menu_fs/02_files/evil_twin_log.jsonl
-menu_fs/02_files/portals/
 menu_fs/02_files/wordlists/
 menu_fs/02_files/cracked/
+menu_fs/02_files/wardriving/
+menu_fs/02_files/evil_twin_log.jsonl
+
+# Map tile cache
+menu_fs/03_apps/map_cache/
+
+# Old paths (kept for safety)
+menu_fs/04_files/
+
+# OS
+.DS_Store
+Thumbs.db
