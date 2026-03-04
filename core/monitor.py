@@ -1,4 +1,6 @@
+import subprocess
 import time
+
 
 class SystemMonitor:
     def __init__(self, max_points=600, interval=1.0):
@@ -70,7 +72,6 @@ class SystemMonitor:
         temp = None
         # first vcgencmd
         try:
-            import subprocess
             out = subprocess.check_output(["vcgencmd", "measure_temp"]).decode("utf-8")
             if "temp=" in out:
                 s = out.split("temp=")[1].split("'")[0]
