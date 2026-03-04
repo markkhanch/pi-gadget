@@ -21,9 +21,9 @@ WARN_DISK_PATH = os.path.join(os.path.dirname(__file__), "..", "assets", "icons"
 WARN_TEMP_PATH = os.path.join(os.path.dirname(__file__), "..", "assets", "icons", "warn_temp.png")
 
 # Thresholds for warnings
-WARN_TEMP_C    = 70.0   # Celsius
-WARN_DISK_PCT  = 10     # % free remaining
-WARN_CPU_PCT   = 85     # % CPU usage sustained
+WARN_TEMP_C   = 70.0   # Celsius
+WARN_DISK_PCT = 10     # % free remaining
+WARN_CPU_PCT  = 85     # % CPU usage sustained
 
 # Cache warning icons (loaded once)
 _warn_icons: dict = {}
@@ -87,14 +87,11 @@ def _get_disk_free_pct() -> float:
 
 
 def _get_active_warnings() -> list:
-    """
-    Return list of (icon_path, label) for active warnings.
-    Checks temp, disk, CPU.
-    """
+    """Return list of (icon_path, label) for active warnings."""
     warnings = []
     temp = _get_cpu_temp()
     if temp >= WARN_TEMP_C:
-        warnings.append((WARN_TEMP_PATH, f"{temp:.0f}°C"))
+        warnings.append((WARN_TEMP_PATH, f"{temp:.0f}C"))
 
     disk_free = _get_disk_free_pct()
     if disk_free <= WARN_DISK_PCT:
@@ -105,6 +102,63 @@ def _get_active_warnings() -> list:
         warnings.append((WARN_CPU_PATH, f"{cpu:.0f}%"))
 
     return warnings
+
+
+ADAPTER_WIFI_PATH = os.path.join(os.path.dirname(__file__), "..", "assets", "icons", "adapter_wifi.png")
+GPS_NO_FIX_PATH   = os.path.join(os.path.dirname(__file__), "..", "assets", "icons", "gps_no_fix.png")
+GPS_FIX_PATH      = os.path.join(os.path.dirname(__file__), "..", "assets", "icons", "gps_fix.png")
+
+
+def _is_wlan1_present() -> bool:
+    """True if external WiFi adapter is plugged in."""
+    return os.path.exists("/sys/class/net/wlan1")
+
+
+def _get_gps_state() -> str:
+    """
+    Returns:
+      'none'   — no GPS device found
+      'no_fix' — GPS connected but no satellites
+      'fix'    — GPS connected with satellite fix
+    """
+    has_device = (
+        os.path.exists("/dev/ttyUSB0") or
+        os.path.exists("/dev/ttyACM0")
+    )
+    if not has_device:
+        return "none"
+
+    # Check if gpsd has a fix
+    try:
+        import socket
+        import json
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(0.3)
+        s.connect(("127.0.0.1", 2947))
+        s.sendall(b'?WATCH={"enable":true,"json":true};\n')
+        data = b""
+        for _ in range(5):
+            try:
+                chunk = s.recv(1024)
+                if not chunk:
+                    break
+                data += chunk
+                for raw in data.split(b"\n"):
+                    try:
+                        obj = json.loads(raw)
+                        if obj.get("class") == "TPV":
+                            if obj.get("lat") and obj.get("mode", 0) >= 2:
+                                s.close()
+                                return "fix"
+                    except Exception:
+                        pass
+            except Exception:
+                break
+        s.close()
+    except Exception:
+        pass
+
+    return "no_fix"
 
 
 def _get_clock_fmt() -> str:
@@ -136,11 +190,11 @@ def draw_screensaver(hw, fonts, wifi_icons, bt_icons, status, eth_icon=None):
     image = Image.new("RGB", (width, height), (0, 0, 0))
     draw  = ImageDraw.Draw(image)
 
-    # --- Status bar ---
+    # Status bar separator
     bar_h = 30
     draw.line([(0, bar_h), (width, bar_h)], fill=(80, 80, 80), width=1)
 
-    # First slot — Ethernet replaces Wi-Fi
+    # Slot 1 — Ethernet replaces Wi-Fi when connected
     if eth_icon is not None and status.is_ethernet_connected():
         slot1_icon = eth_icon
     elif status.is_wifi_connected():
@@ -150,10 +204,24 @@ def draw_screensaver(hw, fonts, wifi_icons, bt_icons, status, eth_icon=None):
 
     bt_icon = bt_icons["on"] if status.is_bluetooth_on() else bt_icons["off"]
 
-    image.paste(slot1_icon, (4, 3), slot1_icon)
-    image.paste(bt_icon,   (36, 3), bt_icon)
+    image.paste(slot1_icon, (4,  3), slot1_icon)
+    image.paste(bt_icon,    (36, 3), bt_icon)
 
-    # Background process indicator icon (left side)
+    # GPS icon
+    gps_state = _get_gps_state()
+    if gps_state != "none":
+        gps_path = GPS_FIX_PATH if gps_state == "fix" else GPS_NO_FIX_PATH
+        gps_icon = _load_warn_icon(gps_path, size=22)
+        if gps_icon:
+            image.paste(gps_icon, (64, 3), gps_icon)
+
+    # External WiFi adapter (wlan1)
+    if _is_wlan1_present():
+        wlan1_icon = _load_warn_icon(ADAPTER_WIFI_PATH, size=22)
+        if wlan1_icon:
+            image.paste(wlan1_icon, (88, 3), wlan1_icon)
+
+    # Background process indicator icon
     if bgm.has_active():
         bg_icon = _load_warn_icon(
             os.path.join(os.path.dirname(__file__), "..",
@@ -161,7 +229,7 @@ def draw_screensaver(hw, fonts, wifi_icons, bt_icons, status, eth_icon=None):
             size=22
         )
         if bg_icon:
-            image.paste(bg_icon, (64, 3), bg_icon)
+            image.paste(bg_icon, (112, 3), bg_icon)
 
     # Warning icons (right side of status bar)
     warnings = _get_active_warnings()
@@ -173,10 +241,10 @@ def draw_screensaver(hw, fonts, wifi_icons, bt_icons, status, eth_icon=None):
             image.paste(icon, (wx, 3), icon)
             wx -= 2
 
-    # --- Time and date ---
-    now     = datetime.now()
-    fmt     = _get_clock_fmt()
-    sec     = now.second
+    # Time and date
+    now = datetime.now()
+    fmt = _get_clock_fmt()
+    sec = now.second
 
     if fmt == "12":
         hour_val = now.hour % 12 or 12

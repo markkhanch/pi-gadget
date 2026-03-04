@@ -329,6 +329,25 @@ def main():
             now = time.time()
             dt  = now - last_frame_time
             last_frame_time = now
+            # Skip all updates when screen is off — only bg tasks continue
+            if screen_is_dimmed:
+                event, prev_button_states = read_buttons(hw, prev_button_states)
+                events = []
+                if event is not None:
+                    events.append(event)
+                while not hw._remote_queue.empty():
+                    try:
+                        events.append(hw._remote_queue.get_nowait())
+                    except Exception:
+                        pass
+                for event in events:
+                    screen_is_dimmed = False
+                    cfg = _load_config()
+                    hw.backlight(int(cfg.get("brightness", 80)))
+                    state = STATE_SCREENSAVER
+                time.sleep(0.1)
+                continue
+
             monitor.sample(now)
 
             event, prev_button_states = read_buttons(hw, prev_button_states)
