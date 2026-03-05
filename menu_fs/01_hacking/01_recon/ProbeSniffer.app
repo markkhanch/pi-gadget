@@ -1,1 +1,1 @@
-{"name": "Probe Sniffer", "module": "bad_stuff.recon.probe_sniffer", "icon": "recon.png"}
+{"name": "Probe Sniffer", "module": "bad_stuff.recon.probe_sniffer", "icon": "recon.png", "sort_priority": 4}

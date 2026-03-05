@@ -1,1 +1,1 @@
-{"name": "Cracker", "module": "bad_stuff.recon.cracker", "icon": "app_default.png"}
+{"name": "Cracker", "module": "bad_stuff.recon.cracker", "icon": "recon.png", "sort_priority": 5}

@@ -1,6 +1,1 @@
-{
-  "name": "Shutdown",
-  "icon": "power.png",
-  "sort_priority": 9010,
-  "exec": "sudo poweroff"
-}
+{"name": "Shutdown", "module": "settings.shutdown", "icon": "app_default.png", "sort_priority": 10}

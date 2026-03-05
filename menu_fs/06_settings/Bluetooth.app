@@ -1,1 +1,1 @@
-{"name": "Bluetooth", "module": "settings.bluetooth", "icon": "app_default.png", "sort_priority": 2}
+{"name": "Bluetooth", "module": "settings.bluetooth", "icon": "bt_on.png", "sort_priority": 2}

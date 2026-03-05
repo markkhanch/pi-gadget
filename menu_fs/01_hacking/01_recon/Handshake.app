@@ -1,1 +1,1 @@
-{"name": "Handshake", "module": "bad_stuff.recon.handshake", "icon": "app_default.png", "sort_priority": 3}
+{"name": "Handshake", "module": "bad_stuff.recon.handshake", "icon": "recon.png", "sort_priority": 2}

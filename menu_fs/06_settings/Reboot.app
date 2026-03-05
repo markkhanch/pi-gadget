@@ -1,6 +1,1 @@
-{
-  "name": "Reboot",
-  "icon": "reboot.png",
-  "sort_priority": 9000,
-  "exec": "sudo reboot"
-}
+{"name": "Reboot", "module": "settings.reboot", "icon": "app_default.png", "sort_priority": 9}

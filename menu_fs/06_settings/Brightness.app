@@ -1,1 +1,1 @@
-{"name": "Brightness", "module": "settings.brightness", "icon": "app_default.png", "sort_priority": 1}
+{"name": "Brightness", "module": "settings.brightness", "icon": "app_default.png", "sort_priority": 4}

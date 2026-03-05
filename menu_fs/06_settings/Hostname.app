@@ -1,1 +1,1 @@
-{"name": "Hostname", "module": "settings.hostname", "icon": "app_default.png", "sort_priority": 4}
+{"name": "Hostname", "module": "settings.hostname", "icon": "app_default.png", "sort_priority": 7}
