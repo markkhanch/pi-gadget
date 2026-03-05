@@ -26,7 +26,9 @@ sudo apt install -y \
   fonts-dejavu \
   aircrack-ng \
   tcpdump \
-  hcxtools
+  hcxtools \
+  hashcat \
+  gpsd gpsd-clients
 
 echo "[*] Installing network tools..."
 sudo apt install -y \
