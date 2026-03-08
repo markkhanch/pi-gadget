@@ -28,7 +28,8 @@ sudo apt install -y \
   tcpdump \
   hcxtools \
   hashcat \
-  gpsd gpsd-clients
+  gpsd gpsd-clients \
+  mdk4
 
 echo "[*] Installing network tools..."
 sudo apt install -y \

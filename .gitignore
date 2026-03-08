@@ -20,3 +20,8 @@ Thumbs.db
 usb_storage.img
 config.json
 menu_fs/02_files/probe_sniffs/
+
+# Captured traffic — personal data, never commit
+menu_fs/02_files/arp_spoof/*.pcap
+menu_fs/02_files/dns_spoof/*.log
+menu_fs/02_files/ssl_strip/*.log

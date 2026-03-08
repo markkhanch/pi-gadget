@@ -13,7 +13,7 @@ import time
 from flask import Flask, Response, request, jsonify, make_response
 
 HTML = r"""<!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
@@ -117,13 +117,12 @@ HTML = r"""<!DOCTYPE html>
       if (!res.ok) throw new Error('bad status');
       const blob = await res.blob();
       const newId = parseInt(res.headers.get('X-Frame-Id') || '-1');
-      
-      // Показываем кадр
+
       const url = URL.createObjectURL(blob);
       const old = screen.src;
       screen.src = url;
       screen.onload = () => { if(old.startsWith('blob:')) URL.revokeObjectURL(old); };
-      
+
       currentId = newId;
       fb.textContent = 'live';
       fb.className = 'ok';
@@ -132,12 +131,12 @@ HTML = r"""<!DOCTYPE html>
       fb.className = 'err';
       await new Promise(r => setTimeout(r, 500));
     }
-    if (active) fetchNextFrame(); // immediately request the next frame
+    if (active) fetchNextFrame();
   }
 
   fetchNextFrame();
 
-  // Кнопки
+  // Button press handler
   function send(key) {
     fetch('/key', {
       method: 'POST',
@@ -170,6 +169,11 @@ class RemoteUI:
         self._frame_id: int = 0
         self._frame_event = threading.Event()  # signals that a new frame is available
 
+        # Guard: prevent calling start() more than once
+        self._started = False
+        # Flag: set to True when stop() is called, Flask thread checks this
+        self._stopped = False
+
         self._app = Flask(__name__)
         self._setup_routes()
 
@@ -184,17 +188,25 @@ class RemoteUI:
         def next_frame():
             """
             Long polling: wait until frame_id > last_id, then return the frame.
-            Browser gets the response immediately after push_frame() — no delay.
+            Returns 503 immediately when streaming is paused (stop() was called).
             """
+            # Return 503 when paused so the browser shows "reconnecting..."
+            if self._stopped:
+                return make_response('paused', 503)
+
             try:
                 last_id = int(request.args.get('last_id', -1))
             except (ValueError, TypeError):
                 last_id = -1
 
-            timeout = 5.0  # максимум ждём 5 секунд (для screensaver и т.п.)
+            timeout = 5.0
             deadline = time.time() + timeout
 
             while True:
+                # Check pause flag inside the loop too (stop() can be called mid-wait)
+                if self._stopped:
+                    return make_response('paused', 503)
+
                 with self._lock:
                     fid = self._frame_id
                     data = self._frame_data
@@ -206,10 +218,8 @@ class RemoteUI:
                     resp.headers['X-Frame-Id'] = str(fid)
                     return resp
 
-                # Wait for new frame signal (or timeout)
                 remaining = deadline - time.time()
                 if remaining <= 0:
-                    # Return current frame on timeout (screensaver etc.)
                     with self._lock:
                         data = self._frame_data
                         fid = self._frame_id
@@ -227,6 +237,9 @@ class RemoteUI:
 
         @app.route('/key', methods=['POST'])
         def key():
+            # Ignore button presses when paused
+            if self._stopped:
+                return make_response(jsonify({'ok': False, 'reason': 'paused'}), 503)
             data = request.get_json(force=True)
             k = data.get('key', '')
             if k:
@@ -236,22 +249,48 @@ class RemoteUI:
             return resp
 
     def push_frame(self, img):
-        """Accept PIL.Image — call after every hw.show()."""
+        """Accept PIL.Image — call after every hw.show(). No-op when paused."""
+        if self._stopped:
+            return
         buf = io.BytesIO()
         img.save(buf, format='JPEG', quality=75)
         with self._lock:
             self._frame_data = buf.getvalue()
             self._frame_id += 1
-        # Signal all waiting threads that a new frame is ready
         self._frame_event.set()
 
     def start(self):
+        """Start the Flask server in a background thread. Safe to call only once."""
+        if self._started:
+            # Already running — just unpause streaming
+            self._stopped = False
+            return
+        self._started = True
+        self._stopped = False
         import logging
         logging.getLogger('werkzeug').setLevel(logging.ERROR)
         t = threading.Thread(
-            target=lambda: self._app.run(host=self.host, port=self.port, threaded=True, use_reloader=False),
+            target=lambda: self._app.run(
+                host=self.host, port=self.port,
+                threaded=True, use_reloader=False
+            ),
             daemon=True
         )
         t.start()
         print(f"[RemoteUI] Open in browser → http://<IP_PI>:{self.port}")
         print(f"[RemoteUI] Get IP with: hostname -I")
+
+    def stop(self):
+        """
+        Pause streaming — Flask keeps running but returns 503 to all clients.
+        push_frame() becomes a no-op. No process is killed.
+        Call start() to resume.
+        """
+        self._stopped = True
+        # Wake up any threads blocked in long-poll so they return 503 immediately
+        self._frame_event.set()
+
+    @property
+    def is_running(self) -> bool:
+        """True if the server is actively streaming frames."""
+        return self._started and not self._stopped
