@@ -1,1 +1,8 @@
-{"name": "Evil Twin", "module": "bad_stuff.network.evil_twin", "icon": "app_default.png", "sort_priority": 1}
+{
+  "name": "Evil Twin",
+  "module": "bad_stuff.network.evil_twin",
+  "icon": "app_default.png",
+  "sort_priority": 1,
+  "description": "Creates a rogue access point that clones a real Wi-Fi network. Nearby devices may auto-connect thinking it is the real network. Serves a captive portal to capture credentials. For authorized security testing only.",
+  "usage": "UP/DOWN: select target AP  CENTER: start  KEY3: exit\nPortal templates in Files \u203a portals/\nLogs saved to Files \u203a evil_twin/"
+}

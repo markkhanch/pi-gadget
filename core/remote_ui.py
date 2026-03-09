@@ -174,6 +174,8 @@ def _scan_apps() -> list:
                     "category":       rel,
                     "category_label": _category_label(rel),
                     "bg_capable":     bool(meta.get("background", False)),
+                    "description":    meta.get("description", ""),
+                    "usage":          meta.get("usage", ""),
                 })
             except Exception:
                 pass
@@ -711,9 +713,10 @@ async function loadApps(){
 
     for (const [cat, list] of Object.entries(cats)){
       const rows = list.map(app=>{
-        const run = active.find(a=>a.name===app.name);
+        const run   = active.find(a=>a.name===app.name);
+        const appId = 'app-' + app.module.replace(/\./g,'-');
 
-        // Status: only show if currently running in background
+        // Status badge
         let badge = '';
         if (run) {
           badge = `<span class="badge green">● BG ${_fmtUp(run.uptime)}</span>`;
@@ -721,27 +724,49 @@ async function loadApps(){
           badge = `<span class="badge dim" title="Supports background mode">bg</span>`;
         }
 
-        // Actions: Launch always opens app on device screen; Stop only for bg tasks
+        // Actions
         let actions = '';
         if (!app.module) {
           actions = `<span style="color:var(--dim2);font-size:9px">no module</span>`;
         } else {
           if (run) {
             actions += `<button class="btn btn-danger btn-sm"
-              onclick="stopApp('${esc(app.name)}')" style="margin-right:4px">■ Stop</button>`;
+              onclick="event.stopPropagation();stopApp('${esc(app.name)}')" style="margin-right:4px">■ Stop</button>`;
           }
           actions += `<button class="btn btn-primary btn-sm"
-            onclick="launchApp('${esc(app.name)}','${esc(app.module)}')">▶ Launch</button>`;
+            onclick="event.stopPropagation();launchApp('${esc(app.name)}','${esc(app.module)}')">▶ Launch</button>`;
         }
 
-        return `<tr>
+        // Expandable info panel
+        const hasInfo = app.description || app.usage;
+        const usageLines = app.usage
+          ? app.usage.split('\n').map(l=>`<div>${esc(l)}</div>`).join('')
+          : '';
+        const infoPanel = hasInfo ? `
+          <tr id="${appId}-info" style="display:none">
+            <td colspan="3" style="padding:0 10px 12px 10px;background:rgba(0,229,255,.03);border-bottom:1px solid var(--border2)">
+              ${app.description ? `<div style="color:var(--text);font-size:11px;margin-bottom:8px;line-height:1.5">${esc(app.description)}</div>` : ''}
+              ${app.usage ? `<div style="color:var(--dim);font-size:10px;border-top:1px solid var(--border2);padding-top:8px;line-height:1.7">${usageLines}</div>` : ''}
+            </td>
+          </tr>` : '';
+
+        const clickAttr = hasInfo ? `onclick="toggleInfo('${appId}')" style="cursor:pointer"` : '';
+        const arrow = hasInfo
+          ? `<span id="${appId}-arrow" style="color:var(--dim);font-size:9px;margin-right:6px">▶</span>`
+          : '';
+
+        return `<tr ${clickAttr}>
           <td>
-            <div style="color:var(--text)">${esc(app.name)}</div>
-            <div style="font-size:9px;color:var(--dim);margin-top:1px">${esc(app.module)}</div>
+            <div style="display:flex;align-items:center">
+              ${arrow}<div>
+                <div style="color:var(--text)">${esc(app.name)}</div>
+                <div style="font-size:9px;color:var(--dim);margin-top:1px">${esc(app.module)}</div>
+              </div>
+            </div>
           </td>
           <td>${badge}</td>
           <td style="white-space:nowrap">${actions}</td>
-        </tr>`;
+        </tr>${infoPanel}`;
       }).join('');
 
       html += `<div class="card">
@@ -760,13 +785,21 @@ async function loadApps(){
   }
 }
 
+function toggleInfo(id){
+  const row   = document.getElementById(id+'-info');
+  const arrow = document.getElementById(id+'-arrow');
+  if (!row) return;
+  const open = row.style.display !== 'none';
+  row.style.display = open ? 'none' : 'table-row';
+  if (arrow) arrow.textContent = open ? '▶' : '▼';
+}
+
 function _fmtUp(s){
   const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;
   if(h) return `${h}h ${m}m`;
   if(m) return `${m}m ${sec}s`;
   return `${sec}s`;
 }
-
 async function stopApp(name){
   if (!confirm(`Stop "${name}"?`)) return;
   try {
