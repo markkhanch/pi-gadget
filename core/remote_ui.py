@@ -724,6 +724,25 @@ async function loadApps(){
           badge = `<span class="badge dim" title="Supports background mode">bg</span>`;
         }
 
+        // Expandable info panel
+        const hasInfo = app.description || app.usage;
+        const usageLines = app.usage
+          ? app.usage.split('\n').map(l=>`<div>${esc(l)}</div>`).join('')
+          : '';
+        const infoPanel = hasInfo ? `
+          <tr id="${appId}-info" style="display:none">
+            <td colspan="3" style="padding:0 10px 14px 10px;background:rgba(251,191,36,.03);border-bottom:1px solid var(--border2)">
+              ${app.description ? `<div style="color:var(--text);font-size:11px;margin-bottom:8px;line-height:1.6">${esc(app.description)}</div>` : ''}
+              ${app.usage ? `<div style="color:var(--dim);font-size:10px;border-top:1px solid var(--border2);padding-top:8px;line-height:1.8">${usageLines}</div>` : ''}
+            </td>
+          </tr>` : '';
+
+        const infoBtn = hasInfo
+          ? `<button id="${appId}-infobtn" class="btn btn-sm"
+               onclick="event.stopPropagation();toggleInfo('${appId}')"
+               style="margin-right:4px;background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.35);color:#fbbf24">ℹ Info</button>`
+          : '';
+
         // Actions
         let actions = '';
         if (!app.module) {
@@ -733,46 +752,25 @@ async function loadApps(){
             actions += `<button class="btn btn-danger btn-sm"
               onclick="event.stopPropagation();stopApp('${esc(app.name)}')" style="margin-right:4px">■ Stop</button>`;
           }
+          actions += infoBtn;
           actions += `<button class="btn btn-primary btn-sm"
             onclick="event.stopPropagation();launchApp('${esc(app.name)}','${esc(app.module)}')">▶ Launch</button>`;
         }
 
-        // Expandable info panel
-        const hasInfo = app.description || app.usage;
-        const usageLines = app.usage
-          ? app.usage.split('\n').map(l=>`<div>${esc(l)}</div>`).join('')
-          : '';
-        const infoPanel = hasInfo ? `
-          <tr id="${appId}-info" style="display:none">
-            <td colspan="3" style="padding:0 10px 12px 10px;background:rgba(0,229,255,.03);border-bottom:1px solid var(--border2)">
-              ${app.description ? `<div style="color:var(--text);font-size:11px;margin-bottom:8px;line-height:1.5">${esc(app.description)}</div>` : ''}
-              ${app.usage ? `<div style="color:var(--dim);font-size:10px;border-top:1px solid var(--border2);padding-top:8px;line-height:1.7">${usageLines}</div>` : ''}
-            </td>
-          </tr>` : '';
-
-        const clickAttr = hasInfo ? `onclick="toggleInfo('${appId}')" style="cursor:pointer"` : '';
-        const arrow = hasInfo
-          ? `<span id="${appId}-arrow" style="color:var(--dim);font-size:9px;margin-right:6px">▶</span>`
-          : '';
-
-        return `<tr ${clickAttr}>
+        return `<tr>
           <td>
-            <div style="display:flex;align-items:center">
-              ${arrow}<div>
-                <div style="color:var(--text)">${esc(app.name)}</div>
-                <div style="font-size:9px;color:var(--dim);margin-top:1px">${esc(app.module)}</div>
-              </div>
-            </div>
+            <div style="color:var(--text)">${esc(app.name)}</div>
+            <div style="font-size:9px;color:var(--dim);margin-top:1px">${esc(app.module)}</div>
           </td>
           <td>${badge}</td>
-          <td style="white-space:nowrap">${actions}</td>
+          <td style="white-space:nowrap;text-align:right">${actions}</td>
         </tr>${infoPanel}`;
       }).join('');
 
       html += `<div class="card">
         <div class="card-title">${esc(cat)}</div>
         <div class="tbl-wrap"><table>
-          <thead><tr><th>APP</th><th>STATUS</th><th></th></tr></thead>
+          <thead><tr><th>APP</th><th>STATUS</th><th style="width:160px;text-align:right">ACTIONS</th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div></div>`;
     }
@@ -786,12 +784,12 @@ async function loadApps(){
 }
 
 function toggleInfo(id){
-  const row   = document.getElementById(id+'-info');
-  const arrow = document.getElementById(id+'-arrow');
+  const row = document.getElementById(id+'-info');
+  const btn = document.getElementById(id+'-infobtn');
   if (!row) return;
   const open = row.style.display !== 'none';
   row.style.display = open ? 'none' : 'table-row';
-  if (arrow) arrow.textContent = open ? '▶' : '▼';
+  if (btn) btn.textContent = open ? 'ℹ Info' : '✕ Close';
 }
 
 function _fmtUp(s){
