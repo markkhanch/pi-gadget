@@ -797,6 +797,31 @@ def main():
                         console_scroll += 1
                         console_dirty = True
 
+            # ── Web UI launch request ─────────────────────────
+            # Check if the web dashboard requested to open an app on the device screen.
+            # pop_launch_request() returns {name, module} or None.
+            if hw._remote is not None:
+                launch_req = hw._remote.pop_launch_request()
+                if launch_req:
+                    module_name = launch_req.get("module", "")
+                    req_name    = launch_req.get("name", module_name)
+                    if module_name:
+                        # Exit current app cleanly if one is running
+                        if current_app is not None and hasattr(current_app, "on_exit"):
+                            current_app.on_exit()
+                            current_app = None
+                            current_app_module = None
+                        app = load_app(module_name, hw, fonts, monitor)
+                        if app is not None:
+                            current_app        = app
+                            current_app_module = module_name
+                            if hasattr(current_app, "on_enter"):
+                                current_app.on_enter()
+                            state = STATE_APP
+                            logging.info("Web UI launched: %s (%s)", req_name, module_name)
+                        else:
+                            logging.warning("Web UI: failed to load app: %s", module_name)
+
             # ── Idle timeout → screensaver ────────────────────
             if state not in (STATE_SCREENSAVER, STATE_DIMMED) and                     (now - last_input_time) > IDLE_TIMEOUT:
                 state = STATE_SCREENSAVER
