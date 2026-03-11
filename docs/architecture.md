@@ -55,7 +55,7 @@ pi-gadget/
 │   ├── 02_files/            # File browser root
 │   ├── 03_apps/             # General apps
 │   ├── 04_system/           # System tools
-│   ├── 05_logs/             # Logs (future)
+│   ├── 05_games/             # Games
 │   └── 06_settings/         # Settings
 │
 ├── scripts/
