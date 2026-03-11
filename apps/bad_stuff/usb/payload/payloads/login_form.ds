@@ -1,9 +1,0 @@
-REM login_form.ds
-REM Fills username + password fields. Cursor must be in username field.
-
-DELAY 300
-STRING myusername@email.com
-TAB
-DELAY 200
-STRING MySecretPassword123!
-ENTER

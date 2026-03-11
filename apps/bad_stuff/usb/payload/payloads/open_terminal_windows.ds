@@ -1,8 +1,0 @@
-REM open_terminal_windows.ds
-REM Opens Run dialog and launches cmd.
-
-DELAY 500
-GUI r
-DELAY 600
-STRING cmd
-ENTER
