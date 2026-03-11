@@ -1,5 +1,7 @@
 # Pi-gadget
 
+[![Documentation](https://img.shields.io/badge/docs-GitBook-blue)](https://projects-20.gitbook.io/projects-docs)
+
 Pi-gadget is a personal side project I work on in my free time.  
 It is a small Raspberry Pi–based handheld device created to explore cybersecurity, system-level programming, hardware interaction, and custom interfaces.
 
@@ -176,6 +178,14 @@ pi-gadget/
     ├── 05_logs/             — Logs (future)
     └── 06_settings/         — Settings
 ```
+
+---
+
+## 📚 Documentation
+
+Full documentation is available at [projects-20.gitbook.io/projects-docs](https://projects-20.gitbook.io/projects-docs)
+
+Covers hardware setup, installation, all apps, developer guide, and troubleshooting.
 
 ---
 
