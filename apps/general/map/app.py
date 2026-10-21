@@ -2,7 +2,7 @@
 apps/tools/map/app.py
 GPS Map — shows current position on OpenStreetMap tiles.
 
-Requires Wi-Fi. Tiles are cached in menu_fs/04_files/map_cache/.
+Requires Wi-Fi. Tiles are cached in menu_fs/03_apps/map_cache/.
 
 Controls:
   UP / DOWN   — zoom in / out

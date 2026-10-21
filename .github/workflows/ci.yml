@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        # The full requirements.txt pulls in Pi-only wheels (RPi.GPIO, spidev,
+        # lgpio) that won't build on CI, so install just what the tests need.
+        run: |
+          python -m pip install --upgrade pip
+          pip install pillow pytest ruff
+
+      - name: Lint (ruff)
+        # Non-blocking for now: there is a known backlog of findings. New code
+        # should aim to keep this clean; flip to a hard gate once it is green.
+        run: ruff check . || true
+
+      - name: Run tests
+        run: pytest

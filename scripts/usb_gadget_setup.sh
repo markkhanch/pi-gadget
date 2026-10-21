@@ -14,7 +14,7 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 GADGET_DIR="/sys/kernel/config/usb_gadget/pigadget"
 MODE="${1:-keyboard}"
 IMG="$PROJECT_DIR/usb_storage.img"
-FILES_DIR="$PROJECT_DIR/menu_fs/04_files"
+FILES_DIR="$PROJECT_DIR/menu_fs/02_files"
 MNT="/tmp/pigadget_mnt"
 
 _unmount() {

@@ -19,7 +19,7 @@ AP_IP="192.168.66.1"
 DHCP_RANGE="192.168.66.10,192.168.66.50,255.255.255.0,1h"
 
 # Persistent log in files folder
-LOG_FILE="$PROJECT_DIR/menu_fs/04_files/evil_twin_log.jsonl"
+LOG_FILE="$PROJECT_DIR/menu_fs/02_files/evil_twin_log.jsonl"
 
 HOSTAPD_CONF="/tmp/evil_twin_hostapd.conf"
 DNSMASQ_CONF="/tmp/evil_twin_dnsmasq.conf"
@@ -38,8 +38,10 @@ _stop() {
     [ -f "$DNSMASQ_PID" ]  && kill "$(cat $DNSMASQ_PID)"  2>/dev/null; rm -f "$DNSMASQ_PID"
     pkill -f "hostapd $HOSTAPD_CONF" 2>/dev/null || true
     sleep 1
-    iptables -t nat -F 2>/dev/null || true
-    iptables -F FORWARD 2>/dev/null || true
+    # Remove only the two redirect rules we added in _start — never flush the
+    # whole table (that would also wipe rules installed by DNS/ARP Spoofer etc).
+    iptables -t nat -D PREROUTING -i "$IFACE" -p tcp --dport 80  -j DNAT --to-destination "$AP_IP:80" 2>/dev/null || true
+    iptables -t nat -D PREROUTING -i "$IFACE" -p tcp --dport 443 -j DNAT --to-destination "$AP_IP:80" 2>/dev/null || true
     ip link set "$IFACE" down 2>/dev/null || true
     iw dev "$IFACE" set type managed 2>/dev/null || true
     ip link set "$IFACE" up 2>/dev/null || true

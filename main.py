@@ -7,6 +7,7 @@ import logging
 
 from PIL import Image, ImageFont
 
+from core import settings as _settings
 from core.hw import HWDisplay
 from core.fonts import load_fonts
 from core.input import read_buttons
@@ -100,12 +101,7 @@ KB_MODE_NEW_FOLDER = "new_folder"
 
 
 def _load_config() -> dict:
-    cfg_path = os.path.join(BASE_DIR, "config.json")
-    try:
-        with open(cfg_path) as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    return _settings.load()
 
 
 _cfg           = _load_config()
@@ -240,7 +236,12 @@ def _draw_bg_tasks(hw, fonts, bgm, selected_index: int):
 
 
 def main():
-    hw = HWDisplay()
+    # Honour the "web_server_autostart" preference (toggled in Settings → Web UI).
+    # Previously HWDisplay() always started the dashboard regardless of this flag.
+    hw = HWDisplay(
+        remote=bool(_cfg.get("web_server_autostart", True)),
+        remote_port=int(_cfg.get("remote_ui_port", 5000)),
+    )
 
     _orig_show = hw.show
     def _patched_show(img):
@@ -383,7 +384,16 @@ def main():
                 # ── App ───────────────────────────────────────
                 elif state == STATE_APP:
                     if current_app is not None:
-                        result = current_app.on_event(event)
+                        try:
+                            result = current_app.on_event(event)
+                        except Exception:
+                            logging.exception("App crashed in on_event: %s",
+                                              current_app_module)
+                            current_app = None
+                            current_app_module = None
+                            state = STATE_MAIN_MENU
+                            menu_dirty = True
+                            result = None
                         if result == "exit":
                             # on_exit is optional — not all apps implement it
                             if hasattr(current_app, "on_exit"):
@@ -879,8 +889,29 @@ def main():
 
             elif state == STATE_APP:
                 if current_app is not None:
-                    current_app.update(dt)
-                    current_app.draw()
+                    try:
+                        current_app.update(dt)
+                        current_app.draw()
+                    except Exception:
+                        # Isolate app failures: log, show a crash screen, and
+                        # return to the menu instead of taking the whole device
+                        # down (systemd Restart was previously the only parachute).
+                        logging.exception("App crashed in update/draw: %s",
+                                          current_app_module)
+                        draw_console(hw, font_label,
+                                     ["App crashed.", "",
+                                      str(current_app_module or ""),
+                                      "", "Returning to menu..."], 0)
+                        if hasattr(current_app, "on_exit"):
+                            try:
+                                current_app.on_exit()
+                            except Exception:
+                                pass
+                        current_app = None
+                        current_app_module = None
+                        time.sleep(2)
+                        state = STATE_MAIN_MENU
+                        menu_dirty = True
 
             elif state == STATE_CONSOLE:
                 if console_dirty:

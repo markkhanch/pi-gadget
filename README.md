@@ -97,14 +97,20 @@ The following components are **optional** and enable additional features:
 HOME
 ├── Bad Stuff               ← Hacking tools (icon grid)
 │   ├── Recon
-│   │   ├── Wardriving      — GPS Wi-Fi mapping, WiGLE CSV + GPX export
 │   │   ├── Net Intel       — Network scanner + OS fingerprinting
+│   │   ├── Wardriving      — GPS Wi-Fi mapping, WiGLE CSV + GPX export
 │   │   ├── Handshake       — WPA2 handshake capture + deauth
-│   │   └── Harvester       — Passive overnight handshake collector
+│   │   ├── PMKID Grab      — PMKID capture (hcxdumptool)
+│   │   ├── Probe Sniffer   — 802.11 probe-request sniffer
+│   │   ├── Harvester       — Passive overnight handshake collector
+│   │   └── Cracker         — Offline WPA2 cracking (hashcat / aircrack-ng)
 │   ├── Network
-│   │   └── Evil Twin       — Rogue AP + captive portal + credential logging
+│   │   ├── Evil Twin       — Rogue AP + captive portal + credential logging
+│   │   ├── DNS Spoofer     — DNS redirection / spoofing
+│   │   └── ARP Spoofer     — ARP cache poisoning / MITM
 │   ├── Wireless
-│   │   └── MAC Changer     — Spoof MAC address on any interface
+│   │   ├── MAC Changer     — Spoof MAC address on any interface
+│   │   └── Deauth Bomber   — 802.11 deauthentication flooder
 │   ├── USB / HID
 │   │   └── Payloads        — Ducky Script 3.0 BadUSB injector
 │   ├── Exploit             — (coming soon)
@@ -113,7 +119,7 @@ HOME
 ├── Apps
 │   └── Map                 — Live GPS map using OpenStreetMap tiles
 ├── System                  ← CPU, RAM, Disk, Temperature, Reboot, Shutdown
-├── Logs                    ← (coming soon)
+├── Games                   ← (coming soon)
 └── Settings                ← Wi-Fi, Bluetooth, Brightness, Date/Time, USB Mode
 ```
 
@@ -175,7 +181,7 @@ pi-gadget/
     ├── 02_files/            — Files root
     ├── 03_apps/             — Apps root
     ├── 04_system/           — System tools
-    ├── 05_logs/             — Logs (future)
+    ├── 05_games/            — Games (future)
     └── 06_settings/         — Settings
 ```
 

@@ -1,0 +1,40 @@
+[project]
+name = "pi-gadget"
+version = "0.1.0"
+description = "Raspberry Pi handheld multitool (menu-driven apps on an ST7789 display)"
+requires-python = ">=3.9"
+readme = "README.md"
+license = { text = "MIT" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+# The app runs on Raspberry Pi OS; target the Python it ships.
+target-version = "py39"
+exclude = [
+    # Vendored hardware drivers — kept verbatim from Waveshare, not our style.
+    "core/epdconfig.py",
+    "core/ST7789.py",
+]
+
+[tool.ruff.lint]
+# Pragmatic set for a hobby device: pyflakes/pycodestyle (E,F), bugbear (B),
+# security (S), and complexity (C90). The S-rules are what would have caught the
+# SSID command injection and the path-traversal bugs for free.
+select = ["E", "F", "B", "S", "C90"]
+ignore = [
+    "E501",    # line length handled by formatter, not worth churn here
+    "S404",    # importing subprocess is expected for a device control tool
+    "S603",    # subprocess call with a resolved argv list is the SAFE pattern we moved to
+    "S607",    # partial executable paths (e.g. "nmcli") are intentional on-device
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.per-file-ignores]
+# Tests may use asserts and short-lived temp patterns freely.
+"tests/**" = ["S101"]

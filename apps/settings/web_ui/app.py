@@ -13,6 +13,8 @@ import subprocess
 import threading
 from PIL import Image, ImageDraw
 
+from core import settings as _settings
+
 TOP_H = 26
 BOT_H = 18
 
@@ -56,27 +58,11 @@ def _get_ips() -> dict:
 
 
 def _load_config():
-    import json, os
-    path = os.path.normpath(
-        os.path.join(os.path.dirname(__file__), "..", "..", "..", "config.json")
-    )
-    try:
-        with open(path) as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    return _settings.load()
 
 
 def _save_config(cfg):
-    import json, os
-    path = os.path.normpath(
-        os.path.join(os.path.dirname(__file__), "..", "..", "..", "config.json")
-    )
-    try:
-        with open(path, "w") as f:
-            json.dump(cfg, f, indent=2)
-    except Exception:
-        pass
+    _settings.save(cfg)
 
 
 class WebUiApp:

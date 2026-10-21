@@ -1,4 +1,5 @@
 flask
+waitress
 gpiozero
 gpsd-py3
 lgpio

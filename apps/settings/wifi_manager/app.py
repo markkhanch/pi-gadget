@@ -66,15 +66,32 @@ def _run(cmd, timeout=10):
         return ""
 
 
-def _run_shell(cmd, timeout=20):
-    """Run shell string, return (returncode, stdout+stderr)."""
+def _run_cmd(argv, timeout=20):
+    """
+    Run a command given as an argv list (no shell), return (returncode, stdout+stderr).
+
+    Passing a list instead of a shell string means arguments such as an SSID or
+    password are handed to the program verbatim and can never be interpreted as
+    shell syntax — this is what prevents command injection via network names.
+    """
     try:
-        r = subprocess.run(cmd, shell=True, capture_output=True, timeout=timeout)
+        r = subprocess.run(argv, capture_output=True, timeout=timeout)
         out = r.stdout.decode("utf-8", errors="ignore")
         err = r.stderr.decode("utf-8", errors="ignore")
         return r.returncode, out + err
     except Exception as e:
         return 1, str(e)
+
+
+# Max SSID length per IEEE 802.11 is 32 octets.
+_SSID_MAX = 32
+
+
+def _valid_ssid(ssid: str) -> bool:
+    """Reject empty, over-long, or control-character SSIDs before acting on them."""
+    if not ssid or len(ssid.encode("utf-8", errors="ignore")) > _SSID_MAX:
+        return False
+    return all(ord(c) >= 0x20 for c in ssid)
 
 
 def _get_current_ssid() -> str:
@@ -138,7 +155,7 @@ def _scan_networks() -> list:
 
 def _get_saved_ssids() -> set:
     """Return set of SSIDs that have saved credentials in NetworkManager (wifi only)."""
-    code, out = _run_shell("nmcli -t -f NAME,TYPE connection show")
+    code, out = _run_cmd(["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"])
     if code != 0:
         return set()
     result = set()
@@ -169,20 +186,24 @@ def _connect_network(ssid: str, password: str) -> tuple:
     If new password provided — delete old profile and reconnect.
     Returns (success, message).
     """
+    if not _valid_ssid(ssid):
+        return False, "Invalid SSID"
+
     saved = _get_saved_ssids()
 
     if not password and ssid in saved:
         # Use saved credentials directly
-        cmd = f'sudo nmcli connection up "{ssid}"' 
+        argv = ["sudo", "nmcli", "connection", "up", ssid]
     elif password:
         # New password — delete old profile first to avoid conflicts
-        _run_shell(f'sudo nmcli connection delete "{ssid}" 2>/dev/null || true')
-        cmd = f'sudo nmcli device wifi connect "{ssid}" password "{password}" ifname wlan0'
+        _run_cmd(["sudo", "nmcli", "connection", "delete", ssid])
+        argv = ["sudo", "nmcli", "device", "wifi", "connect", ssid,
+                "password", password, "ifname", "wlan0"]
     else:
         # Open network
-        cmd = f'sudo nmcli device wifi connect "{ssid}" ifname wlan0'
+        argv = ["sudo", "nmcli", "device", "wifi", "connect", ssid, "ifname", "wlan0"]
 
-    code, out = _run_shell(cmd, timeout=30)
+    code, out = _run_cmd(argv, timeout=30)
 
     if code == 0 and "successfully activated" in out.lower():
         return True, f"Connected to {ssid}"
@@ -199,7 +220,7 @@ def _connect_network(ssid: str, password: str) -> tuple:
 
 def _disconnect_network() -> tuple:
     """Disconnect wlan0 from current network."""
-    code, out = _run_shell("sudo nmcli device disconnect wlan0", timeout=10)
+    code, out = _run_cmd(["sudo", "nmcli", "device", "disconnect", "wlan0"], timeout=10)
     if code == 0:
         return True, "Disconnected"
     err = out.strip().split("\n")[-1][:38] if out.strip() else "Failed"
@@ -208,13 +229,13 @@ def _disconnect_network() -> tuple:
 
 def _wifi_enabled() -> bool:
     """Check if Wi-Fi radio is enabled (not rfkill blocked)."""
-    code, out = _run_shell("rfkill list wifi")
+    code, out = _run_cmd(["rfkill", "list", "wifi"])
     return "Soft blocked: yes" not in out
 
 
 def _wifi_off() -> tuple:
     """Disable Wi-Fi radio via rfkill."""
-    code, out = _run_shell("sudo rfkill block wifi")
+    code, out = _run_cmd(["sudo", "rfkill", "block", "wifi"])
     if code == 0:
         return True, "Wi-Fi OFF"
     return False, out.strip()[:38] or "Failed"
@@ -222,7 +243,7 @@ def _wifi_off() -> tuple:
 
 def _wifi_on() -> tuple:
     """Enable Wi-Fi radio via rfkill."""
-    code, out = _run_shell("sudo rfkill unblock wifi")
+    code, out = _run_cmd(["sudo", "rfkill", "unblock", "wifi"])
     if code == 0:
         return True, "Wi-Fi ON"
     return False, out.strip()[:38] or "Failed"
@@ -230,11 +251,13 @@ def _wifi_on() -> tuple:
 
 def _forget_network(ssid: str) -> tuple:
     """Delete saved connection profile for this SSID."""
-    code, out = _run_shell(f'nmcli connection delete "{ssid}"', timeout=10)
+    if not _valid_ssid(ssid):
+        return False, "Invalid SSID"
+    code, out = _run_cmd(["nmcli", "connection", "delete", ssid], timeout=10)
     if code == 0:
         return True, f"Forgot {ssid}"
     # Try with sudo
-    code, out = _run_shell(f'sudo nmcli connection delete "{ssid}"', timeout=10)
+    code, out = _run_cmd(["sudo", "nmcli", "connection", "delete", ssid], timeout=10)
     if code == 0:
         return True, f"Forgot {ssid}"
     return False, "Forget failed"

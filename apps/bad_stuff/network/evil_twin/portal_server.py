@@ -3,7 +3,7 @@
 apps/tools/evil_twin/portal_server.py
 Captive portal web server.
 
-- Loads HTML templates ONLY from menu_fs/04_files/portals/
+- Loads HTML templates ONLY from menu_fs/02_files/portals/
 - Logs captured credentials to menu_fs/02_files/evil_twin_log.jsonl (persistent)
 - Handles captive portal detection for iOS, Android, Windows
 

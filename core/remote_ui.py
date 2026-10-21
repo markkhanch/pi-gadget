@@ -28,13 +28,17 @@ Launch integration with main.py:
 
 import io
 import json
+import logging
 import os
+import secrets
 import threading
 import queue
 import time
 
 from flask import Flask, request, jsonify, make_response, send_file
 from werkzeug.utils import secure_filename
+
+from core import settings as _settings
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _HERE       = os.path.dirname(os.path.abspath(__file__))
@@ -136,19 +140,35 @@ _CONFIG_WHITELIST = {
 
 
 def _load_config() -> dict:
-    try:
-        with open(CONFIG_PATH) as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    return _settings.load()
 
 
 def _save_config(data: dict):
-    try:
-        with open(CONFIG_PATH, "w") as f:
-            json.dump(data, f, indent=2)
-    except Exception:
-        pass
+    _settings.save(data)
+
+
+# Name of the cookie the dashboard uses to carry the access token.
+_AUTH_COOKIE = "pg_token"
+
+
+def _ensure_token() -> str:
+    """
+    Return the web UI access token, generating and persisting one on first use.
+
+    The dashboard is reachable on the LAN, so every request must prove knowledge
+    of this token. It is stored in config.json and logged once so the owner can
+    retrieve it (e.g. `journalctl -u pi-gadget | grep token`).
+    """
+    cfg = _load_config()
+    token = str(cfg.get("remote_ui_token", "")).strip()
+    if not token:
+        token = secrets.token_urlsafe(24)
+        cfg["remote_ui_token"] = token
+        _save_config(cfg)
+        logging.warning("[RemoteUI] Generated web UI access token: %s", token)
+        logging.warning("[RemoteUI] Open the dashboard once as http://<device>:%s/?token=%s",
+                        cfg.get("remote_ui_port", 5000), token)
+    return token
 
 
 # ── App discovery ──────────────────────────────────────────────────────────────
@@ -194,10 +214,35 @@ def _category_label(cat: str) -> str:
 
 # ── File browser ───────────────────────────────────────────────────────────────
 
+# Extensions that are refused on upload. `.app` files are executed by fs_ops.run_app
+# on a CENTER press in the file browser, so allowing them to be uploaded would turn
+# the file endpoint into remote code execution; the rest are blocked for the same
+# "upload then run" reason.
+_BLOCKED_UPLOAD_EXT = {".app", ".sh", ".bash", ".py", ".php", ".pl", ".rb", ".cgi"}
+
+
+def _safe_path(base: str, sub: str):
+    """
+    Resolve `sub` under `base` and return the real path only if it stays inside
+    `base`. Uses os.path.commonpath so that a sibling directory whose name merely
+    starts with the base (e.g. '02_files_evil') cannot pass the check. Returns
+    None if the resolved path escapes `base`.
+    """
+    base   = os.path.realpath(base)
+    target = os.path.realpath(os.path.join(base, sub)) if sub else base
+    try:
+        if os.path.commonpath([base, target]) != base:
+            return None
+    except ValueError:
+        # Raised when paths are on different drives (Windows) — treat as escape.
+        return None
+    return target
+
+
 def _list_files(subpath: str = "") -> list:
     base   = os.path.realpath(FILES_DIR)
-    target = os.path.realpath(os.path.join(base, subpath)) if subpath else base
-    if not target.startswith(base):
+    target = _safe_path(base, subpath)
+    if target is None:
         return []
     entries = []
     try:
@@ -1174,6 +1219,7 @@ class RemoteUI:
         self.button_queue = button_queue
         self.host = host
         self.port = port
+        self.token = _ensure_token()
 
         self._lock        = threading.Lock()
         self._frame_data: bytes = b''
@@ -1203,9 +1249,27 @@ class RemoteUI:
     def _setup_routes(self):
         app = self._app
 
+        @app.before_request
+        def _require_token():
+            # Every request must carry the token, via the X-Auth-Token header,
+            # the pg_token cookie, or a ?token= query param (used once to log in
+            # and set the cookie). Constant-time compare avoids a timing oracle.
+            supplied = (request.headers.get('X-Auth-Token')
+                        or request.cookies.get(_AUTH_COOKIE)
+                        or request.args.get('token')
+                        or '')
+            if not secrets.compare_digest(supplied, self.token):
+                return make_response('unauthorized', 401)
+
         @app.route('/')
         def index():
-            return DASHBOARD_HTML
+            resp = make_response(DASHBOARD_HTML)
+            # First visit arrives as /?token=... ; drop a cookie so the SPA's
+            # subsequent same-origin fetches authenticate without the query.
+            if request.args.get('token') == self.token:
+                resp.set_cookie(_AUTH_COOKIE, self.token,
+                                httponly=True, samesite='Strict')
+            return resp
 
         # Frame long-poll
         @app.route('/next_frame')
@@ -1303,9 +1367,8 @@ class RemoteUI:
         @app.route('/api/files/download')
         def api_files_download():
             rel    = request.args.get('path', '')
-            base   = os.path.realpath(FILES_DIR)
-            target = os.path.realpath(os.path.join(base, rel))
-            if not target.startswith(base) or not os.path.isfile(target):
+            target = _safe_path(FILES_DIR, rel)
+            if target is None or not os.path.isfile(target):
                 return make_response('not found', 404)
             return send_file(target, as_attachment=True,
                              download_name=os.path.basename(target))
@@ -1313,9 +1376,8 @@ class RemoteUI:
         @app.route('/api/files/upload', methods=['POST'])
         def api_files_upload():
             sub    = request.args.get('path', '')
-            base   = os.path.realpath(FILES_DIR)
-            target = os.path.realpath(os.path.join(base, sub)) if sub else base
-            if not target.startswith(base):
+            target = _safe_path(FILES_DIR, sub)
+            if target is None:
                 return jsonify({'ok': False, 'error': 'invalid path'})
             if 'file' not in request.files:
                 return jsonify({'ok': False, 'error': 'no file in request'})
@@ -1324,6 +1386,9 @@ class RemoteUI:
                 fname = secure_filename(f.filename or '')
                 if not fname:
                     continue
+                if os.path.splitext(fname)[1].lower() in _BLOCKED_UPLOAD_EXT:
+                    return jsonify({'ok': False,
+                                    'error': f'file type not allowed: {fname}'})
                 try:
                     os.makedirs(target, exist_ok=True)
                     f.save(os.path.join(target, fname))
@@ -1335,9 +1400,8 @@ class RemoteUI:
         @app.route('/api/files', methods=['DELETE'])
         def api_files_delete():
             rel    = (request.get_json(force=True) or {}).get('path', '')
-            base   = os.path.realpath(FILES_DIR)
-            target = os.path.realpath(os.path.join(base, rel))
-            if not target.startswith(base):
+            target = _safe_path(FILES_DIR, rel)
+            if target is None:
                 return jsonify({'ok': False, 'error': 'invalid path'})
             if not os.path.isfile(target):
                 return jsonify({'ok': False, 'error': 'not found'})
@@ -1453,14 +1517,19 @@ class RemoteUI:
             return
         self._started = True
         self._stopped = False
-        import logging
         logging.getLogger('werkzeug').setLevel(logging.ERROR)
-        threading.Thread(
-            target=lambda: self._app.run(
-                host=self.host, port=self.port,
-                threaded=True, use_reloader=False),
-            daemon=True
-        ).start()
+
+        def _serve():
+            try:
+                # Prefer a production WSGI server over the werkzeug dev server.
+                from waitress import serve
+                serve(self._app, host=self.host, port=self.port,
+                      threads=8, _quiet=True)
+            except ImportError:
+                self._app.run(host=self.host, port=self.port,
+                              threaded=True, use_reloader=False)
+
+        threading.Thread(target=_serve, daemon=True).start()
 
     def stop(self):
         """Pause streaming. Flask stays alive; clients receive 503."""

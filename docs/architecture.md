@@ -35,7 +35,8 @@ pi-gadget/
 │   ├── remote_ui.py         # Flask server — live screen streaming + button events
 │   ├── monitor.py           # SystemMonitor — sampled CPU/RAM/temp time series
 │   ├── status.py            # wlan0/wlan1/BT/GPS status helpers
-│   ├── config.py            # config.json read/write helpers
+│   ├── epdconfig.py         # Waveshare e-paper/SPI low-level driver (used by ST7789.py)
+│   ├── settings.py          # config.json read/write helpers
 │   ├── console.py           # Console output renderer
 │   └── ui_keyboard.py       # On-screen keyboard widget
 │
@@ -167,4 +168,5 @@ Runtime settings are persisted in `config.json` at the project root. Keys used b
 | `hostname`       | string      | Device hostname                            |
 | `usb_mode`       | string      | `"keyboard"` or `"storage"`                |
 
-Apps read and write `config.json` using `core/config.py` helpers.
+Apps read and write `config.json` using `core/settings.py` helpers
+(`settings.load()`, `settings.save()`, `settings.get()`, `settings.set_key()`).

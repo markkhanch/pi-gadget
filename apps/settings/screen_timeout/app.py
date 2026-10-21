@@ -8,9 +8,9 @@ Controls:
   KEY3         — exit
 """
 
-import json
-import os
 from PIL import Image, ImageDraw
+
+from core import settings as _settings
 
 TOP_BAR_H = 24
 BOT_BAR_H = 20
@@ -33,26 +33,12 @@ OPTIONS = [
     ("10 min",600),
 ]
 
-CONFIG_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "..", "..", "..", "config.json"
-)
-
-
 def _load_config() -> dict:
-    try:
-        with open(CONFIG_PATH) as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    return _settings.load()
 
 
 def _save_config(cfg: dict):
-    try:
-        with open(CONFIG_PATH, "w") as f:
-            json.dump(cfg, f, indent=2)
-    except Exception:
-        pass
+    _settings.save(cfg)
 
 
 def _current_index(cfg: dict) -> int:

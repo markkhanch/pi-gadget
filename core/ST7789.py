@@ -1,6 +1,6 @@
 
 import time
-from core import config
+from core import epdconfig as config
 
 class ST7789(config.RaspberryPi):
 

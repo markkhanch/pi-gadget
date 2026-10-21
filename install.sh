@@ -3,44 +3,63 @@
 # Run once on a fresh Raspberry Pi OS installation.
 #
 # What this script does:
-#   1. Installs system packages (Python, SPI, fonts, network tools)
+#   1. Installs system packages (Python, SPI, fonts, network/wireless tools)
 #   2. Installs Python packages from requirements.txt
 #   3. Enables USB OTG (dwc2 + libcomposite) for HID/storage gadget
-#   4. Sets up usb_gadget_setup.sh as a sudoers rule (no password prompt)
-#   5. Makes usb_gadget_setup.sh executable
+#   4. Writes a sudoers drop-in granting NOPASSWD for the exact commands the
+#      apps call (resolved on THIS machine), plus the two helper scripts
+#   5. Makes the helper scripts executable
+#   6. Installs a systemd autostart service
 #
 # After running this script, REBOOT the Pi for USB OTG to take effect.
+#
+# May be run either as the normal user (it calls sudo itself) or via
+# `sudo ./install.sh` — in both cases the sudoers/service are bound to the
+# real login user, not root.
 
-set -e
+set -euo pipefail
+
+# Resolve the directory this script lives in, regardless of the cwd it is
+# invoked from. Everything below is anchored to this path.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$SCRIPT_DIR"
+
+# The user the service and sudoers rules belong to. When invoked with sudo,
+# $SUDO_USER is the real user; otherwise fall back to $USER.
+RUN_USER="${SUDO_USER:-$USER}"
+
+echo "[*] Project dir: $PROJECT_DIR"
+echo "[*] Target user: $RUN_USER"
 
 echo "[*] Updating APT..."
 sudo apt update
 
-echo "[*] Installing system packages (Python, SPI, fonts)..."
+echo "[*] Installing system packages (Python, SPI, fonts, network/wireless tools)..."
 sudo apt install -y \
-  hostapd \
-  iptables \
   python3 python3-pip python3-dev \
   python3-rpi.gpio python3-spidev \
   python3-numpy python3-pil \
   fonts-dejavu \
+  hostapd \
+  iptables \
+  dnsmasq \
+  iw \
+  wireless-tools \
+  rfkill \
+  nmap \
+  arp-scan \
+  dosfstools \
+  lsof \
   aircrack-ng \
   tcpdump \
   hcxtools \
+  hcxdumptool \
   hashcat \
-  gpsd gpsd-clients \
-  mdk4
-
-echo "[*] Installing network tools..."
-sudo apt install -y \
-  hostapd \
-  iptables \
-  nmap \
-  arp-scan \
-  dosfstools
+  mdk4 \
+  gpsd gpsd-clients
 
 echo "[*] Installing Python packages from requirements.txt..."
-pip3 install --break-system-packages -r requirements.txt
+pip3 install --break-system-packages -r "$PROJECT_DIR/requirements.txt"
 
 echo "[*] Enabling USB OTG (dwc2)..."
 CONFIG="/boot/firmware/config.txt"
@@ -63,20 +82,49 @@ if ! grep -q "^libcomposite" /etc/modules; then
     echo "    Added libcomposite to /etc/modules"
 fi
 
-echo "[*] Making usb_gadget_setup.sh executable..."
-chmod +x usb_gadget_setup.sh
+echo "[*] Making helper scripts executable..."
+chmod +x "$PROJECT_DIR"/scripts/*.sh
 
-echo "[*] Allowing usb_gadget_setup.sh to run without password (sudoers)..."
-SUDOERS_LINE="ALL ALL=(ALL) NOPASSWD: /bin/bash $(pwd)/usb_gadget_setup.sh *"
-SUDOERS_FILE="/etc/sudoers.d/pi-gadget-usb"
-echo "$SUDOERS_LINE" | sudo tee "$SUDOERS_FILE" > /dev/null
-sudo chmod 440 "$SUDOERS_FILE"
-echo "    Sudoers rule written to $SUDOERS_FILE"
+echo "[*] Writing sudoers rules (NOPASSWD for the exact commands the apps use)..."
+# The apps shell out to a known set of privileged binaries. We grant NOPASSWD
+# for exactly those — resolved on THIS machine so the paths are correct for the
+# installed distro — never "NOPASSWD: ALL". Binaries that are not installed are
+# simply skipped. `bash` and `python3` are NOT granted blanket (that would be a
+# root shell); they are restricted to the specific helper scripts.
+SUDOERS_FILE="/etc/sudoers.d/pi-gadget"
+TMP_SUDOERS="$(mktemp)"
+{
+  echo "# Managed by pi-gadget install.sh — regenerated on each run. Do not edit by hand."
+  for bin in ip iw iwlist nmcli rfkill iptables hostapd dnsmasq \
+             bluetoothctl hciconfig nmap arp-scan tcpdump sysctl kill \
+             airmon-ng airodump-ng aireplay-ng mdk4 hcxdumptool hashcat \
+             gpsd systemctl timedatectl hostnamectl; do
+    p="$(command -v "$bin" 2>/dev/null || true)"
+    [ -n "$p" ] && echo "$RUN_USER ALL=(root) NOPASSWD: $p"
+  done
+  BASH_BIN="$(command -v bash)"
+  PY3_BIN="$(command -v python3)"
+  echo "$RUN_USER ALL=(root) NOPASSWD: $BASH_BIN $PROJECT_DIR/scripts/usb_gadget_setup.sh *"
+  echo "$RUN_USER ALL=(root) NOPASSWD: $BASH_BIN $PROJECT_DIR/scripts/evil_twin.sh *"
+  echo "$RUN_USER ALL=(root) NOPASSWD: $PY3_BIN $PROJECT_DIR/apps/bad_stuff/network/evil_twin/portal_server.py *"
+} > "$TMP_SUDOERS"
+
+# Always validate before installing — a malformed sudoers file can lock you out.
+if sudo visudo -c -f "$TMP_SUDOERS" > /dev/null; then
+    sudo install -m 440 -o root -g root "$TMP_SUDOERS" "$SUDOERS_FILE"
+    echo "    Sudoers rules written to $SUDOERS_FILE"
+else
+    echo "    ERROR: generated sudoers file failed validation — NOT installed."
+    echo "    Review it here: $TMP_SUDOERS"
+    exit 1
+fi
+rm -f "$TMP_SUDOERS"
+
+# Remove sudoers files from older installs (rules are now consolidated above).
+sudo rm -f /etc/sudoers.d/pi-gadget-usb /etc/sudoers.d/pi-gadget-gpsd
 
 echo ""
-# Create systemd service for autostart
 echo "[*] Creating systemd autostart service..."
-INSTALL_DIR="$(pwd)"
 SERVICE_FILE="/etc/systemd/system/pi-gadget.service"
 sudo tee "$SERVICE_FILE" > /dev/null << SVCEOF
 [Unit]
@@ -85,9 +133,9 @@ After=multi-user.target
 
 [Service]
 Type=simple
-User=$USER
-WorkingDirectory=$INSTALL_DIR
-ExecStart=/usr/bin/python3 $INSTALL_DIR/main.py
+User=$RUN_USER
+WorkingDirectory=$PROJECT_DIR
+ExecStart=/usr/bin/python3 $PROJECT_DIR/main.py
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
@@ -99,9 +147,8 @@ SVCEOF
 sudo systemctl daemon-reload
 sudo systemctl enable pi-gadget.service
 echo "    Autostart enabled (pi-gadget.service)"
-echo "    To disable: sudo systemctl disable pi-gadget"
-echo ""
 
+echo ""
 echo "[✓] Installation complete."
 echo ""
 echo "  IMPORTANT: Reboot the Pi for USB OTG and autostart to take effect:"
@@ -115,6 +162,3 @@ echo "    sudo systemctl stop pi-gadget && python3 main.py"
 echo ""
 echo "  To disable autostart:"
 echo "    sudo systemctl disable pi-gadget"
-
-# Allow gpsd without sudo password
-echo "$USER ALL=(ALL) NOPASSWD: /usr/sbin/gpsd" | sudo tee /etc/sudoers.d/pi-gadget-gpsd > /dev/null

@@ -10,9 +10,9 @@ Controls:
   KEY3          — exit (keeps current brightness)
 """
 
-import json
-import os
 from PIL import Image, ImageDraw
+
+from core import settings as _settings
 
 TOP_BAR_H  = 24
 BOT_BAR_H  = 20
@@ -27,34 +27,17 @@ STEP       = 5    # percent per button press
 MIN_BL     = 10   # minimum brightness %
 MAX_BL     = 100  # maximum brightness %
 
-CONFIG_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "..", "..", "..", "config.json"
-)
-
-
 def _load_brightness() -> int:
     """Load saved brightness from config.json, default 80."""
     try:
-        with open(CONFIG_PATH, "r") as f:
-            cfg = json.load(f)
-        return int(cfg.get("brightness", 80))
+        return int(_settings.get("brightness", 80))
     except Exception:
         return 80
 
 
 def _save_brightness(value: int):
     """Save brightness to config.json."""
-    try:
-        cfg = {}
-        if os.path.exists(CONFIG_PATH):
-            with open(CONFIG_PATH, "r") as f:
-                cfg = json.load(f)
-        cfg["brightness"] = value
-        with open(CONFIG_PATH, "w") as f:
-            json.dump(cfg, f, indent=2)
-    except Exception:
-        pass
+    _settings.set_key("brightness", value)
 
 
 def _bar_color(pct: int):
