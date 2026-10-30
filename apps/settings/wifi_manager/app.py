@@ -179,12 +179,25 @@ def _signal_bars(dbm: int) -> str:
 
 # ── Network actions ───────────────────────────────────────────
 
+# How long nmcli itself waits for activation (-w), and the hard subprocess
+# timeout (a little longer so nmcli returns its own result before we kill it).
+_NM_WAIT     = 25
+_CMD_TIMEOUT = _NM_WAIT + 10
+
+
 def _connect_network(ssid: str, password: str) -> tuple:
     """
     Connect using nmcli. NM persists credentials automatically.
     If password is empty and saved profile exists — use 'connection up' (no password needed).
     If new password provided — delete old profile and reconnect.
     Returns (success, message).
+
+    nmcli is given an explicit -w (wait) so it returns a real result instead of
+    blocking until our hard timeout — e.g. when a saved profile is missing its
+    password, nmcli would otherwise wait forever for a secret agent that never
+    answers in the headless service. After the call we also poll the current
+    SSID for a few seconds, since association can finish slightly after nmcli
+    returns (or after a timeout).
     """
     if not _valid_ssid(ssid):
         return False, "Invalid SSID"
@@ -193,25 +206,28 @@ def _connect_network(ssid: str, password: str) -> tuple:
 
     if not password and ssid in saved:
         # Use saved credentials directly
-        argv = ["sudo", "nmcli", "connection", "up", ssid]
+        argv = ["sudo", "nmcli", "-w", str(_NM_WAIT), "connection", "up", ssid]
     elif password:
         # New password — delete old profile first to avoid conflicts
         _run_cmd(["sudo", "nmcli", "connection", "delete", ssid])
-        argv = ["sudo", "nmcli", "device", "wifi", "connect", ssid,
-                "password", password, "ifname", "wlan0"]
+        argv = ["sudo", "nmcli", "-w", str(_NM_WAIT), "device", "wifi", "connect",
+                ssid, "password", password, "ifname", "wlan0"]
     else:
         # Open network
-        argv = ["sudo", "nmcli", "device", "wifi", "connect", ssid, "ifname", "wlan0"]
+        argv = ["sudo", "nmcli", "-w", str(_NM_WAIT), "device", "wifi", "connect",
+                ssid, "ifname", "wlan0"]
 
-    code, out = _run_cmd(argv, timeout=30)
+    code, out = _run_cmd(argv, timeout=_CMD_TIMEOUT)
 
     if code == 0 and "successfully activated" in out.lower():
         return True, f"Connected to {ssid}"
 
-    # Double-check via iwgetid
-    time.sleep(2)
-    if _get_current_ssid() == ssid:
-        return True, f"Connected to {ssid}"
+    # Even on a non-zero exit or a timeout, association may have completed —
+    # poll iwgetid for a few seconds before declaring failure.
+    for _ in range(6):
+        time.sleep(1)
+        if _get_current_ssid() == ssid:
+            return True, f"Connected to {ssid}"
 
     # Return last line of nmcli output as error
     err = out.strip().split("\n")[-1][:38] if out.strip() else "Unknown error"
