@@ -95,12 +95,24 @@ SUDOERS_FILE="/etc/sudoers.d/pi-gadget"
 TMP_SUDOERS="$(mktemp)"
 {
   echo "# Managed by pi-gadget install.sh — regenerated on each run. Do not edit by hand."
+  # Resolve each privileged binary to an ABSOLUTE path on this machine. sudoers
+  # rejects anything that is not fully-qualified, and `command -v` can return a
+  # shell builtin name with no path (e.g. "kill"), so fall back to well-known
+  # locations in that case. Binaries that resolve to neither are skipped.
   for bin in ip iw iwlist nmcli rfkill iptables hostapd dnsmasq \
              bluetoothctl hciconfig nmap arp-scan tcpdump sysctl kill \
              airmon-ng airodump-ng aireplay-ng mdk4 hcxdumptool hashcat \
              gpsd systemctl timedatectl hostnamectl; do
     p="$(command -v "$bin" 2>/dev/null || true)"
-    [ -n "$p" ] && echo "$RUN_USER ALL=(root) NOPASSWD: $p"
+    case "$p" in
+      /*) echo "$RUN_USER ALL=(root) NOPASSWD: $p" ;;
+      *)  for cand in "/usr/bin/$bin" "/bin/$bin" "/usr/sbin/$bin" "/sbin/$bin"; do
+            if [ -x "$cand" ]; then
+              echo "$RUN_USER ALL=(root) NOPASSWD: $cand"
+              break
+            fi
+          done ;;
+    esac
   done
   BASH_BIN="$(command -v bash)"
   PY3_BIN="$(command -v python3)"
