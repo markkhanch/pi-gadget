@@ -17,7 +17,6 @@ Controls:
     Any key    — back to main
 """
 
-import os
 import re
 import random
 import subprocess

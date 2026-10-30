@@ -18,14 +18,12 @@ Controls:
 
 import os
 import re
-import csv
 import time
 import shutil
 import logging
 import tempfile
 import threading
 import subprocess
-import datetime
 from PIL import Image, ImageDraw
 from core.background import bgm
 
@@ -294,6 +292,12 @@ class DeauthBomberApp:
                 csv_path = prefix + "-01.csv"
                 aps = _parse_airodump_csv(csv_path)
                 self._aps = aps
+                # Clamp selection/scroll — the new list may be shorter than the
+                # old one, and a stale _sel_idx would IndexError on CENTER.
+                if self._sel_idx >= len(self._aps):
+                    self._sel_idx = max(0, len(self._aps) - 1)
+                if self._scroll > self._sel_idx:
+                    self._scroll = 0
 
             except Exception as e:
                 log.error("Scan error: %s", e)

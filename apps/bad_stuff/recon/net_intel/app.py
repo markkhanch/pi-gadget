@@ -29,7 +29,6 @@ Controls:
 
 import subprocess
 import threading
-import time
 import socket
 from PIL import Image, ImageDraw
 
@@ -66,11 +65,9 @@ SCREEN_LABELS = ["Net", "Hosts", "Detail", "Ports"]
 # ── Shell helper ──────────────────────────────────────────────
 
 def _sh(cmd, timeout=30):
+    """Run a command given as an argv list (no shell — no injection surface)."""
     try:
-        r = subprocess.run(
-            cmd, capture_output=True, timeout=timeout,
-            shell=isinstance(cmd, str)
-        )
+        r = subprocess.run(cmd, capture_output=True, timeout=timeout)
         return r.returncode, (r.stdout + r.stderr).decode("utf-8", errors="ignore")
     except subprocess.TimeoutExpired:
         return 1, "timeout"
@@ -93,16 +90,20 @@ def _collect_overview() -> list:
                 break
 
     for iface in ("wlan0", "eth0"):
-        _, out = _sh(f"cat /sys/class/net/{iface}/address 2>/dev/null")
-        mac = out.strip()
+        mac = ""
+        try:
+            with open(f"/sys/class/net/{iface}/address") as f:
+                mac = f.read().strip()
+        except Exception:
+            mac = ""
         if mac:
             rows.append((f"{iface} MAC", mac, WHITE))
 
     _, out = _sh(["ip", "route", "show", "default"])
     parts = out.split()
-    if "via" in parts:
+    if "via" in parts and parts.index("via") + 1 < len(parts):
         rows.append(("Gateway", parts[parts.index("via") + 1], YELLOW))
-    if "dev" in parts:
+    if "dev" in parts and parts.index("dev") + 1 < len(parts):
         rows.append(("Interface", parts[parts.index("dev") + 1], DIM))
 
     try:

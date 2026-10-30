@@ -46,7 +46,6 @@ import socket
 import struct
 import threading
 import time
-import datetime
 import subprocess
 from PIL import Image, ImageDraw
 from core.background import bgm
@@ -96,11 +95,9 @@ PURPLE = (160, 80,  255)
 # ── Shell helper ──────────────────────────────────────────────
 
 def _sh(cmd, timeout=10):
+    """Run a command given as an argv list (no shell — no injection surface)."""
     try:
-        r = subprocess.run(
-            cmd, capture_output=True, timeout=timeout,
-            shell=isinstance(cmd, str)
-        )
+        r = subprocess.run(cmd, capture_output=True, timeout=timeout)
         return r.returncode, (r.stdout + r.stderr).decode("utf-8", errors="ignore")
     except Exception as e:
         return 1, str(e)

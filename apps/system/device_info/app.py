@@ -4,7 +4,6 @@ Device information — IP, MAC, gateway, hostname, OS, uptime, Pi model.
 """
 
 import subprocess
-import time
 from PIL import Image, ImageDraw
 
 
@@ -23,11 +22,35 @@ RED        = (220, 70, 70)
 
 
 def _sh(cmd, timeout=5):
+    """Run a command given as an argv list (no shell — no injection surface)."""
     try:
-        r = subprocess.run(cmd, capture_output=True, timeout=timeout, shell=isinstance(cmd, str))
+        r = subprocess.run(cmd, capture_output=True, timeout=timeout)
         return r.stdout.decode("utf-8", errors="ignore").strip()
     except Exception:
         return ""
+
+
+def _read_file(path: str) -> str:
+    """Read a small sysfs/proc file, stripped. Empty string on any error."""
+    try:
+        with open(path, encoding="utf-8", errors="ignore") as f:
+            return f.read().replace("\x00", "").strip()
+    except Exception:
+        return ""
+
+
+def _os_pretty_name() -> str:
+    for line in _read_file("/etc/os-release").splitlines():
+        if line.startswith("PRETTY_NAME="):
+            return line.split("=", 1)[1].strip().strip('"')
+    return ""
+
+
+def _cpuinfo_model() -> str:
+    for line in _read_file("/proc/cpuinfo").splitlines():
+        if line.startswith("Model") and ":" in line:
+            return line.split(":", 1)[1].strip()
+    return ""
 
 
 def _get_info() -> list:
@@ -51,7 +74,7 @@ def _get_info() -> list:
             break
     rows.append(("Wi-Fi IP", wlan_ip or "—"))
 
-    wlan_mac = _sh("cat /sys/class/net/wlan0/address 2>/dev/null") or "—"
+    wlan_mac = _read_file("/sys/class/net/wlan0/address") or "—"
     rows.append(("Wi-Fi MAC", wlan_mac))
 
     # Ethernet IP and MAC
@@ -64,14 +87,14 @@ def _get_info() -> list:
             break
     rows.append(("ETH IP", eth_ip or "—"))
 
-    eth_mac = _sh("cat /sys/class/net/eth0/address 2>/dev/null") or "—"
+    eth_mac = _read_file("/sys/class/net/eth0/address") or "—"
     rows.append(("ETH MAC", eth_mac))
 
     # Default gateway
     gw = ""
     out = _sh(["ip", "route", "show", "default"])
     parts = out.split()
-    if "via" in parts:
+    if "via" in parts and parts.index("via") + 1 < len(parts):
         gw = parts[parts.index("via") + 1]
     rows.append(("Gateway", gw or "—"))
 
@@ -87,7 +110,7 @@ def _get_info() -> list:
     rows.append(("Uptime", uptime))
 
     # OS version
-    os_name = _sh("grep PRETTY_NAME /etc/os-release | cut -d'\"' -f2") or "—"
+    os_name = _os_pretty_name() or "—"
     # Shorten long names
     os_name = os_name.replace("GNU/Linux", "").replace("  ", " ").strip()
     if len(os_name) > 18:
@@ -95,9 +118,9 @@ def _get_info() -> list:
     rows.append(("OS", os_name))
 
     # Pi model
-    model = _sh("cat /proc/device-tree/model 2>/dev/null").replace("\x00", "").strip()
+    model = _read_file("/proc/device-tree/model")
     if not model:
-        model = _sh("cat /proc/cpuinfo | grep Model | cut -d: -f2").strip()
+        model = _cpuinfo_model()
     if len(model) > 20:
         model = model[:19] + "…"
     rows.append(("Model", model or "—"))

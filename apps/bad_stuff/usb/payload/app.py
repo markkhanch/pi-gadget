@@ -295,7 +295,7 @@ class PayloadApp:
             mw, mh = self._ts(d, msg, self.font_label)
             d.text(((W - mw) // 2, y0 + 24), msg,
                    font=self.font_label, fill=DIM)
-            sub = f"Add .ds files to payloads/"
+            sub = "Add .ds files to payloads/"
             sw, _ = self._ts(d, sub, self.font_label)
             d.text(((W - sw) // 2, y0 + 24 + mh + 6), sub,
                    font=self.font_label, fill=HINT)

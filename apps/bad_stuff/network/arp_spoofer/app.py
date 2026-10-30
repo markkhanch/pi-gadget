@@ -75,11 +75,9 @@ PURPLE = (160, 80,  255)
 # ── Shell helper ──────────────────────────────────────────────
 
 def _sh(cmd, timeout=20):
+    """Run a command given as an argv list (no shell — no injection surface)."""
     try:
-        r = subprocess.run(
-            cmd, capture_output=True, timeout=timeout,
-            shell=isinstance(cmd, str)
-        )
+        r = subprocess.run(cmd, capture_output=True, timeout=timeout)
         return r.returncode, (r.stdout + r.stderr).decode("utf-8", errors="ignore")
     except subprocess.TimeoutExpired:
         return 1, "timeout"
@@ -107,7 +105,7 @@ def _kill_proc(proc):
 def _get_gateway() -> str:
     _, out = _sh(["ip", "route", "show", "default"])
     parts = out.split()
-    if "via" in parts:
+    if "via" in parts and parts.index("via") + 1 < len(parts):
         return parts[parts.index("via") + 1]
     return ""
 
@@ -115,14 +113,17 @@ def _get_gateway() -> str:
 def _get_iface() -> str:
     _, out = _sh(["ip", "route", "show", "default"])
     parts = out.split()
-    if "dev" in parts:
+    if "dev" in parts and parts.index("dev") + 1 < len(parts):
         return parts[parts.index("dev") + 1]
     return "wlan0"
 
 
 def _get_own_mac(iface: str) -> str:
-    _, out = _sh(f"cat /sys/class/net/{iface}/address 2>/dev/null")
-    return out.strip()
+    try:
+        with open(f"/sys/class/net/{iface}/address") as f:
+            return f.read().strip()
+    except Exception:
+        return ""
 
 
 def _arp_scan() -> list:

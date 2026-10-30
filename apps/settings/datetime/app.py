@@ -310,7 +310,7 @@ class DatetimeApp:
             self._dirty = True
         elif event == "CENTER":
             self._act(lambda: _set_timezone(TIMEZONES[self.tz_sel]),
-                      f"Setting timezone...")
+                      "Setting timezone...")
         return "stay"
 
     def _ev_time(self, event) -> str:

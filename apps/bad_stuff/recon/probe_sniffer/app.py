@@ -12,7 +12,6 @@ Controls:
 
 import os
 import re
-import csv
 import time
 import shutil
 import logging

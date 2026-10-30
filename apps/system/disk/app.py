@@ -5,7 +5,6 @@ Disk usage with progress bar and donut chart.
 
 import shutil
 from PIL import Image, ImageDraw
-import math
 
 
 TOP_BAR_H  = 24
