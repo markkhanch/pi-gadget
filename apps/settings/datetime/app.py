@@ -99,10 +99,14 @@ FIELD_LIMITS = [(0, 23), (0, 59), (1, 31), (1, 12), (2020, 2099)]
 
 # ── Shell ─────────────────────────────────────────────────────
 
-def _sh(cmd, timeout=10):
-    """Run shell command string. Returns (returncode, stdout+stderr stripped)."""
+def _sh(argv, timeout=10):
+    """
+    Run a command given as an argv list (no shell). Returns (returncode,
+    stdout+stderr stripped). Passing a list keeps arguments such as a timezone
+    name out of shell interpretation — no command injection.
+    """
     try:
-        r = subprocess.run(cmd, shell=True, capture_output=True, timeout=timeout)
+        r = subprocess.run(argv, capture_output=True, timeout=timeout)
         out = r.stdout.decode("utf-8", errors="ignore")
         err = r.stderr.decode("utf-8", errors="ignore")
         return r.returncode, (out + err).strip()
@@ -121,7 +125,7 @@ def _get_td() -> dict:
       System clock synchronized: no
       NTP service: inactive
     """
-    _, raw = _sh("timedatectl")
+    _, raw = _sh(["timedatectl"])
     td = {"timezone": "Unknown", "ntp": False, "synced": False}
 
     for line in raw.splitlines():
@@ -155,7 +159,7 @@ def _get_td() -> dict:
 
 
 def _set_timezone(tz: str) -> tuple:
-    code, out = _sh(f"sudo timedatectl set-timezone {tz}")
+    code, out = _sh(["sudo", "timedatectl", "set-timezone", tz])
     if code == 0:
         # Update TZ in the current process so datetime.now() reflects new zone immediately
         import os, time as _time
@@ -167,7 +171,7 @@ def _set_timezone(tz: str) -> tuple:
 
 def _set_ntp(enable: bool) -> tuple:
     val = "true" if enable else "false"
-    code, out = _sh(f"sudo timedatectl set-ntp {val}")
+    code, out = _sh(["sudo", "timedatectl", "set-ntp", val])
     if code == 0:
         return True, f"NTP {'enabled' if enable else 'disabled'}"
     return False, out[:60] or "Failed"
@@ -175,7 +179,7 @@ def _set_ntp(enable: bool) -> tuple:
 
 def _set_time(dt: datetime) -> tuple:
     ts = dt.strftime("%Y-%m-%d %H:%M:%S")
-    code, out = _sh(f'sudo timedatectl set-time "{ts}"')
+    code, out = _sh(["sudo", "timedatectl", "set-time", ts])
     if code == 0:
         return True, f"Time set:\n{ts}"
     return False, out[:60] or "Failed"
